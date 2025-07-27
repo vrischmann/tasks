@@ -112,6 +112,15 @@ var (
 	inputPromptStyle = lipgloss.NewStyle().
 				Foreground(primaryColor).
 				Bold(true)
+
+	// Banner styles - darker gradient from green to white
+	bannerGreen1 = lipgloss.NewStyle().Foreground(lipgloss.Color("#059669")) // Medium green
+	bannerGreen2 = lipgloss.NewStyle().Foreground(lipgloss.Color("#10b981")) // Green
+	bannerGreen3 = lipgloss.NewStyle().Foreground(lipgloss.Color("#22c55e")) // Bright green
+	bannerGreen4 = lipgloss.NewStyle().Foreground(lipgloss.Color("#34d399")) // Light green
+	bannerGreen5 = lipgloss.NewStyle().Foreground(lipgloss.Color("#6ee7b7")) // Very light green
+	bannerGreen6 = lipgloss.NewStyle().Foreground(lipgloss.Color("#a7f3d0")) // Pale green
+	bannerWhite  = lipgloss.NewStyle().Foreground(lipgloss.Color("#f0f9ff")) // Off-white
 )
 
 type Item struct {
@@ -182,6 +191,54 @@ func parseMarkdownFile(filename string) ([]Item, error) {
 	return items, scanner.Err()
 }
 
+func renderBanner() string {
+	// Block-style ASCII art for "Tasks" with left arrow pattern like Gemini CLI
+	lines := []string{
+		"███            ████████  █████   ███████ ██   ██ ███████",
+		"░░░███         ░░░░░██   ██   ██ ██      ██  ██  ██     ",
+		"  ░░░███           ██    ███████ ███████ █████   ███████",
+		"    ░░░███         ██    ██   ██      ██ ██  ██       ██",
+		"     ███░          ██    ██   ██ ███████ ██   ██ ███████",
+		"   ███░         ░░░░░░░  ░░░░░░░ ░░░░░░░ ░░░░░░░ ░░░░░░░",
+		" ███░           ░░░░░░░  ░░░░░░░ ░░░░░░░ ░░░░░░░ ░░░░░░░",
+		"░░░             ░░░░░░░  ░░░░░░░ ░░░░░░░ ░░░░░░░ ░░░░░░░",
+	}
+
+	// Apply gradient coloring - each character gets a color based on position
+	var result strings.Builder
+
+	for _, line := range lines {
+		totalWidth := len(line)
+		for i, char := range line {
+			// Calculate gradient position (0.0 to 1.0)
+			position := float64(i) / float64(totalWidth-1)
+
+			// Choose color based on position
+			var style lipgloss.Style
+			switch {
+			case position < 0.16:
+				style = bannerGreen1
+			case position < 0.32:
+				style = bannerGreen2
+			case position < 0.48:
+				style = bannerGreen3
+			case position < 0.64:
+				style = bannerGreen4
+			case position < 0.80:
+				style = bannerGreen5
+			case position < 0.96:
+				style = bannerGreen6
+			default:
+				style = bannerWhite
+			}
+
+			result.WriteString(style.Render(string(char)))
+		}
+		result.WriteString("\n")
+	}
+
+	return result.String()
+}
 func initialModel(filename string) Model {
 	items, err := parseMarkdownFile(filename)
 	if err != nil {
@@ -540,10 +597,9 @@ func (m Model) saveToFile() error {
 func (m Model) View() string {
 	var s strings.Builder
 
-	// Simple header with just title
-	title := titleStyle.Render("📋 Tasks - " + m.filename)
-	topBar := topBarStyle.Render(title)
-	s.WriteString(topBar + "\n\n")
+	// Add the gradient banner at the top
+	s.WriteString(renderBanner())
+	s.WriteString("\n")
 
 	if len(m.items) == 0 {
 		noTasksMsg := taskPendingStyle.Render("No tasks found. Press 'q' to quit.")
@@ -686,28 +742,26 @@ func (m Model) View() string {
 		statusContent.WriteString(saved)
 	}
 
-	// Right side: file modification time
-	timeStr := m.fileModTime.Format("15:04:05")
-	lastUpdate := lastUpdateStyle.Render("Last: " + timeStr)
+	// Right side: filename
+	filename := lastUpdateStyle.Render("File: " + m.filename)
 
-	// Calculate spacing to right-align the time
+	// Calculate spacing to right-align the filename
 	leftText := ""
 	if m.dirty {
 		leftText = "● Modified"
 	} else {
 		leftText = "Saved"
 	}
-	rightText := "Last: " + timeStr
+	rightText := "File: " + m.filename
 	padding := 80 - len(leftText) - len(rightText) - 4 // 4 for padding
 	if padding < 1 {
 		padding = 1
 	}
 
 	statusContent.WriteString(strings.Repeat(" ", padding))
-	statusContent.WriteString(lastUpdate)
+	statusContent.WriteString(filename)
 
-	statusLine := statusLineStyle.Render(statusContent.String())
-	s.WriteString(statusLine)
+	s.WriteString(statusContent.String())
 
 	return s.String()
 }
