@@ -572,10 +572,10 @@ func (m Model) View() string {
 			// Style checkbox and task text based on completion status
 			var checkbox, taskText string
 			if item.Checked != nil && *item.Checked {
-				checkbox = checkedBoxStyle.Render("✓")
+				checkbox = checkedBoxStyle.Render("☒")
 				taskText = taskCompletedStyle.Render(item.Content)
 			} else {
-				checkbox = uncheckedBoxStyle.Render("○")
+				checkbox = uncheckedBoxStyle.Render("☐")
 				taskText = taskPendingStyle.Render(item.Content)
 			}
 
@@ -597,9 +597,9 @@ func (m Model) View() string {
 
 				var styledContent string
 				if item.Checked != nil && *item.Checked {
-					styledContent = highlightStyle.Render(checkedBoxStyle.Render("✓") + " " + taskCompletedStyle.Render(item.Content))
+					styledContent = highlightStyle.Render(checkedBoxStyle.Render("☒") + " " + taskCompletedStyle.Render(item.Content))
 				} else {
-					styledContent = highlightStyle.Render(uncheckedBoxStyle.Render("○") + " " + taskPendingStyle.Render(item.Content))
+					styledContent = highlightStyle.Render(uncheckedBoxStyle.Render("☐") + " " + taskPendingStyle.Render(item.Content))
 				}
 				s.WriteString(fmt.Sprintf("%s  %s\n", taskIndent, styledContent))
 			} else {
