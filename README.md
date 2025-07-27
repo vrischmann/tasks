@@ -2,8 +2,6 @@
 
 A beautiful, interactive terminal application for managing tasks stored in markdown files. Built with Go, Bubble Tea, and lipgloss for a modern TUI experience.
 
-![Tasks Demo](https://img.shields.io/badge/Go-1.24.5-blue) ![License](https://img.shields.io/badge/license-MIT-green)
-
 ## Features
 
 ✨ **Interactive Terminal UI** - Navigate with Vim-style keys  
