@@ -21,79 +21,79 @@ const (
 // Define color scheme and styles
 var (
 	// Colors
-	primaryColor   = lipgloss.Color("#7C3AED")   // Purple
-	accentColor    = lipgloss.Color("#EC4899")   // Pink
-	successColor   = lipgloss.Color("#10B981")   // Green
-	mutedColor     = lipgloss.Color("#6B7280")   // Gray
-	backgroundColor = lipgloss.Color("#1F2937")  // Dark gray
-	textColor      = lipgloss.Color("#F9FAFB")   // Light gray
-	
+	primaryColor    = lipgloss.Color("#7C3AED") // Purple
+	accentColor     = lipgloss.Color("#EC4899") // Pink
+	successColor    = lipgloss.Color("#10B981") // Green
+	mutedColor      = lipgloss.Color("#6B7280") // Gray
+	backgroundColor = lipgloss.Color("#1F2937") // Dark gray
+	textColor       = lipgloss.Color("#F9FAFB") // Light gray
+
 	// Title style
 	titleStyle = lipgloss.NewStyle().
-		Foreground(primaryColor).
-		Bold(true).
-		Padding(0, 1).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(primaryColor)
-	
+			Foreground(primaryColor).
+			Bold(true).
+			Padding(0, 1).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(primaryColor)
+
 	// Section styles
 	sectionStyle = lipgloss.NewStyle().
-		Foreground(accentColor).
-		Bold(true)
-	
+			Foreground(accentColor).
+			Bold(true)
+
 	sectionCollapsedStyle = lipgloss.NewStyle().
-		Foreground(mutedColor).
-		Bold(true)
-	
+				Foreground(mutedColor).
+				Bold(true)
+
 	// Task styles
 	taskCompletedStyle = lipgloss.NewStyle().
-		Foreground(successColor).
-		Strikethrough(true)
-	
+				Foreground(successColor).
+				Strikethrough(true)
+
 	taskPendingStyle = lipgloss.NewStyle().
-		Foreground(textColor)
-	
+				Foreground(textColor)
+
 	// Selection highlight (base style, width will be set dynamically)
 	selectedStyle = lipgloss.NewStyle().
-		Background(lipgloss.Color("#374151")).
-		Bold(true)
-	
+			Background(lipgloss.Color("#374151")).
+			Bold(true)
+
 	// Main container style
 	containerStyle = lipgloss.NewStyle().
-		Width(80).
-		Padding(0, 2)
-	
+			Width(80).
+			Padding(0, 2)
+
 	// Checkbox styles
 	checkedBoxStyle = lipgloss.NewStyle().
-		Foreground(successColor).
-		Bold(true)
-	
+			Foreground(successColor).
+			Bold(true)
+
 	uncheckedBoxStyle = lipgloss.NewStyle().
-		Foreground(mutedColor)
-	
+				Foreground(mutedColor)
+
 	// Arrow styles
 	arrowExpandedStyle = lipgloss.NewStyle().
-		Foreground(accentColor).
-		Bold(true)
-	
+				Foreground(accentColor).
+				Bold(true)
+
 	arrowCollapsedStyle = lipgloss.NewStyle().
-		Foreground(mutedColor)
-	
+				Foreground(mutedColor)
+
 	// Help text style
 	helpStyle = lipgloss.NewStyle().
-		Foreground(mutedColor).
-		Italic(true).
-		Margin(1, 0, 0, 0)
-	
+			Foreground(mutedColor).
+			Italic(true).
+			Margin(1, 0, 0, 0)
+
 	// Input field style
 	inputStyle = lipgloss.NewStyle().
-		Background(lipgloss.Color("#374151")).
-		Foreground(textColor).
-		Padding(0, 1)
-	
+			Background(lipgloss.Color("#374151")).
+			Foreground(textColor).
+			Padding(0, 1)
+
 	inputPromptStyle = lipgloss.NewStyle().
-		Foreground(primaryColor).
-		Bold(true)
+				Foreground(primaryColor).
+				Bold(true)
 )
 
 type Item struct {
@@ -106,15 +106,15 @@ type Item struct {
 }
 
 type Model struct {
-	items       []Item
-	cursor      int
-	filename    string
-	visibleItems []int // indices of items that are currently visible (sections and tasks)
-	inputMode   bool   // whether we're in input mode
-	inputText   string // text being typed
-	editingIndex int   // index of item being edited (-1 for new item)
-	newSectionLevel int // level of section being created (0 = task)
-	hMode       bool   // whether we're waiting for a number after 'h'
+	items           []Item
+	cursor          int
+	filename        string
+	visibleItems    []int  // indices of items that are currently visible (sections and tasks)
+	inputMode       bool   // whether we're in input mode
+	inputText       string // text being typed
+	editingIndex    int    // index of item being edited (-1 for new item)
+	newSectionLevel int    // level of section being created (0 = task)
+	hMode           bool   // whether we're waiting for a number after 'h'
 }
 
 func parseMarkdownFile(filename string) ([]Item, error) {
@@ -126,13 +126,13 @@ func parseMarkdownFile(filename string) ([]Item, error) {
 
 	var items []Item
 	scanner := bufio.NewScanner(file)
-	
+
 	headerRegex := regexp.MustCompile(`^(#{1,6})\s+(.+)$`)
 	taskRegex := regexp.MustCompile(`^(\s*)-\s+\[([x\s])\]\s+(.+)$`)
-	
+
 	for scanner.Scan() {
 		line := strings.TrimRight(scanner.Text(), "\r\n")
-		
+
 		if headerMatch := headerRegex.FindStringSubmatch(line); headerMatch != nil {
 			level := len(headerMatch[1])
 			content := headerMatch[2]
@@ -158,7 +158,7 @@ func parseMarkdownFile(filename string) ([]Item, error) {
 			})
 		}
 	}
-	
+
 	return items, scanner.Err()
 }
 
@@ -167,19 +167,19 @@ func initialModel(filename string) Model {
 	if err != nil {
 		items = []Item{}
 	}
-	
+
 	m := Model{
-		items:        items,
-		cursor:       0,
-		filename:     filename,
-		visibleItems: []int{},
-		inputMode:    false,
-		inputText:    "",
-		editingIndex: -1,
+		items:           items,
+		cursor:          0,
+		filename:        filename,
+		visibleItems:    []int{},
+		inputMode:       false,
+		inputText:       "",
+		editingIndex:    -1,
 		newSectionLevel: 0,
-		hMode:       false,
+		hMode:           false,
 	}
-	
+
 	m.updateVisibleItems()
 	return m
 }
@@ -191,14 +191,14 @@ func (m Model) Init() tea.Cmd {
 func (m *Model) updateVisibleItems() {
 	m.visibleItems = []int{}
 	var sectionStack []*Item // Stack to track nested sections
-	
+
 	for i, item := range m.items {
 		if item.Type == TypeSection {
 			// Update section stack based on level
 			for len(sectionStack) > 0 && sectionStack[len(sectionStack)-1].Level >= item.Level {
 				sectionStack = sectionStack[:len(sectionStack)-1]
 			}
-			
+
 			// Check if this section should be visible (no collapsed parent sections)
 			visible := true
 			for _, section := range sectionStack {
@@ -207,15 +207,15 @@ func (m *Model) updateVisibleItems() {
 					break
 				}
 			}
-			
+
 			if visible {
 				m.visibleItems = append(m.visibleItems, i)
 			}
-			
+
 			// Add current section to stack
 			itemCopy := m.items[i]
 			sectionStack = append(sectionStack, &itemCopy)
-			
+
 		} else if item.Type == TypeTask {
 			// Check if task should be visible (no collapsed sections in stack)
 			visible := true
@@ -225,13 +225,13 @@ func (m *Model) updateVisibleItems() {
 					break
 				}
 			}
-			
+
 			if visible {
 				m.visibleItems = append(m.visibleItems, i)
 			}
 		}
 	}
-	
+
 	// Ensure cursor is within bounds
 	if m.cursor >= len(m.visibleItems) {
 		m.cursor = len(m.visibleItems) - 1
@@ -263,7 +263,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					itemIndex := m.getCurrentItemIndex()
 					if itemIndex >= 0 {
 						var newItem Item
-						
+
 						if m.newSectionLevel > 0 {
 							// Create new section
 							newItem = Item{
@@ -296,11 +296,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 								}
 							}
 						}
-						
+
 						insertIndex := itemIndex + 1
 						m.items = append(m.items[:insertIndex], append([]Item{newItem}, m.items[insertIndex:]...)...)
 						m.updateVisibleItems()
-						
+
 						// Find new position in visible items
 						for i, idx := range m.visibleItems {
 							if idx == insertIndex {
@@ -336,7 +336,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		
+
 		// Handle h-mode (waiting for number after 'h')
 		if m.hMode {
 			switch msg.String() {
@@ -382,7 +382,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		
+
 		// Normal navigation mode
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -497,14 +497,13 @@ func (m Model) saveToFile() error {
 	return nil
 }
 
-
 func (m Model) View() string {
 	var s strings.Builder
-	
+
 	// Title
 	title := titleStyle.Render(fmt.Sprintf("📋 Tasks - %s", m.filename))
 	s.WriteString(title + "\n\n")
-	
+
 	if len(m.items) == 0 {
 		noTasksMsg := taskPendingStyle.Render("No tasks found. Press 'q' to quit.")
 		s.WriteString(noTasksMsg + "\n")
@@ -512,10 +511,10 @@ func (m Model) View() string {
 	}
 
 	var sectionStack []*Item // Stack to track sections for indentation
-	
+
 	for visIdx, itemIndex := range m.visibleItems {
 		item := m.items[itemIndex]
-		
+
 		// Update section stack by finding all sections up to this item
 		sectionStack = []*Item{}
 		for i := 0; i < itemIndex; i++ {
@@ -527,12 +526,12 @@ func (m Model) View() string {
 				sectionStack = append(sectionStack, &m.items[i])
 			}
 		}
-		
+
 		switch item.Type {
 		case TypeSection:
 			// Calculate indentation (level 1 = 0 spaces, level 2 = 2 spaces, etc.)
 			indent := strings.Repeat("  ", item.Level-1)
-			
+
 			// Style the arrow based on collapsed state
 			var arrow string
 			if item.Collapsed {
@@ -540,7 +539,7 @@ func (m Model) View() string {
 			} else {
 				arrow = arrowExpandedStyle.Render("▼")
 			}
-			
+
 			// Style section text based on collapsed state
 			var sectionText string
 			if item.Collapsed {
@@ -548,16 +547,16 @@ func (m Model) View() string {
 			} else {
 				sectionText = sectionStyle.Render(item.Content)
 			}
-			
+
 			sectionLine := fmt.Sprintf("%s %s", arrow, sectionText)
-			
+
 			// Highlight current section
 			if m.cursor == visIdx {
 				// Calculate fixed width accounting for indentation
 				indentWidth := len(indent) + 2 // indent + "  "
 				highlightWidth := 70 - indentWidth
 				highlightStyle := selectedStyle.Copy().Width(highlightWidth)
-				
+
 				var styledContent string
 				if item.Collapsed {
 					styledContent = highlightStyle.Render(arrowCollapsedStyle.Render("▶") + " " + sectionCollapsedStyle.Render(item.Content))
@@ -568,7 +567,7 @@ func (m Model) View() string {
 			} else {
 				s.WriteString(fmt.Sprintf("%s  %s\n", indent, sectionLine))
 			}
-			
+
 		case TypeTask:
 			// Style checkbox and task text based on completion status
 			var checkbox, taskText string
@@ -579,23 +578,23 @@ func (m Model) View() string {
 				checkbox = uncheckedBoxStyle.Render("○")
 				taskText = taskPendingStyle.Render(item.Content)
 			}
-			
+
 			// Task indentation is based on the deepest section level + 1
 			taskIndent := ""
 			if len(sectionStack) > 0 {
 				deepestLevel := sectionStack[len(sectionStack)-1].Level
 				taskIndent = strings.Repeat("  ", deepestLevel)
 			}
-			
+
 			taskLine := fmt.Sprintf("%s %s", checkbox, taskText)
-			
+
 			// Style the current task differently
 			if m.cursor == visIdx {
 				// Calculate fixed width accounting for indentation
 				indentWidth := len(taskIndent) + 2 // taskIndent + "  "
 				highlightWidth := 70 - indentWidth
 				highlightStyle := selectedStyle.Copy().Width(highlightWidth)
-				
+
 				var styledContent string
 				if item.Checked != nil && *item.Checked {
 					styledContent = highlightStyle.Render(checkedBoxStyle.Render("✓") + " " + taskCompletedStyle.Render(item.Content))
@@ -649,10 +648,10 @@ func (m Model) View() string {
 				"s (save) • " +
 				"q (quit)")
 		}
-		
+
 		s.WriteString(helpText + "\n")
 	}
-	
+
 	return s.String()
 }
 
@@ -663,9 +662,9 @@ func main() {
 	}
 
 	filename := os.Args[1]
-	
+
 	p := tea.NewProgram(initialModel(filename))
-	
+
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
