@@ -12,11 +12,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// ItemType represents the type of item in the task list
 type ItemType int
 
 const (
-	TypeSection ItemType = iota
-	TypeTask
+	TypeSection ItemType = iota // Section header
+	TypeTask                    // Task item
 )
 
 // Define color scheme and styles
@@ -28,8 +29,7 @@ var (
 	mutedColor   = lipgloss.Color("#6B7280") // Gray
 	textColor    = lipgloss.Color("#F9FAFB") // Light gray
 
-	// Top bar styles
-
+	// Status line styles
 	dirtyIndicatorStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#F59E0B")).
 				Bold(true)
@@ -102,42 +102,31 @@ var (
 	bannerWhite  = lipgloss.NewStyle().Foreground(lipgloss.Color("#f0f9ff")) // Off-white
 )
 
+// Item represents a single task or section in the task list
 type Item struct {
-	Type      ItemType
-	Level     int
-	Content   string
-	Checked   *bool
-	Children  []Item
-	Collapsed bool
+	Type      ItemType // Type of item (section or task)
+	Level     int      // Level of the section (0 for tasks, 1-6 for sections)
+	Content   string   // Content of the item
+	Checked   *bool    // Pointer to bool for task completion status (nil for sections)
+	Children  []Item   // Children items (for sections, tasks are not nested)
+	Collapsed bool     // Whether the section is collapsed
 }
 
-type Model struct {
-	items           []Item
-	cursor          int
-	filename        string
-	visibleItems    []int     // indices of items that are currently visible (sections and tasks)
-	inputMode       bool      // whether we're in input mode
-	inputText       string    // text being typed
-	editingIndex    int       // index of item being edited (-1 for new item)
-	newSectionLevel int       // level of section being created (0 = task)
-	hMode           bool      // whether we're waiting for a number after 'h'
-	dirty           bool      // whether the file has unsaved changes
-	fileModTime     time.Time // file modification time
-}
-
+// parseMarkdownFile reads a Markdown file and returns a slice of Items
+// Returns an error if the file cannot be read or parsed
 func parseMarkdownFile(filename string) ([]Item, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open file %s: %w", filename, err)
 	}
 	defer file.Close()
 
-	var items []Item
 	scanner := bufio.NewScanner(file)
 
 	headerRegex := regexp.MustCompile(`^(#{1,6})\s+(.+)$`)
 	taskRegex := regexp.MustCompile(`^(\s*)-\s+\[([x\s])\]\s+(.+)$`)
 
+	var items []Item
 	for scanner.Scan() {
 		line := strings.TrimRight(scanner.Text(), "\r\n")
 
@@ -167,9 +156,13 @@ func parseMarkdownFile(filename string) ([]Item, error) {
 		}
 	}
 
-	return items, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read file %s: %w", filename, err)
+	}
+	return items, nil
 }
 
+// renderBanner generates a stylized banner for the application
 func renderBanner() string {
 	// Block-style ASCII art for "Tasks" with left arrow pattern like Gemini CLI
 	lines := []string{
@@ -215,6 +208,23 @@ func renderBanner() string {
 
 	return result.String()
 }
+
+// Model represents the application state
+type Model struct {
+	items           []Item
+	cursor          int
+	filename        string
+	visibleItems    []int     // indices of items that are currently visible (sections and tasks)
+	inputMode       bool      // whether we're in input mode
+	inputText       string    // text being typed
+	editingIndex    int       // index of item being edited (-1 for new item)
+	newSectionLevel int       // level of section being created (0 = task)
+	hMode           bool      // whether we're waiting for a number after 'h'
+	dirty           bool      // whether the file has unsaved changes
+	fileModTime     time.Time // file modification time
+}
+
+// initialModel initializes the application model with data from a Markdown file
 func initialModel(filename string) Model {
 	items, err := parseMarkdownFile(filename)
 	if err != nil {
@@ -247,16 +257,19 @@ func initialModel(filename string) Model {
 	return m
 }
 
+// Init returns a command to initialize the model
 func (m Model) Init() tea.Cmd {
 	return nil
 }
 
+// updateVisibleItems updates the list of visible items based on the current state
 func (m *Model) updateVisibleItems() {
 	m.visibleItems = []int{}
 	var sectionStack []*Item // Stack to track nested sections
 
 	for i, item := range m.items {
-		if item.Type == TypeSection {
+		switch item.Type {
+		case TypeSection:
 			// Update section stack based on level
 			for len(sectionStack) > 0 && sectionStack[len(sectionStack)-1].Level >= item.Level {
 				sectionStack = sectionStack[:len(sectionStack)-1]
@@ -279,7 +292,7 @@ func (m *Model) updateVisibleItems() {
 			itemCopy := m.items[i]
 			sectionStack = append(sectionStack, &itemCopy)
 
-		} else if item.Type == TypeTask {
+		case TypeTask:
 			// Check if task should be visible (no collapsed sections in stack)
 			visible := true
 			for _, section := range sectionStack {
@@ -304,6 +317,7 @@ func (m *Model) updateVisibleItems() {
 	}
 }
 
+// getCurrentItemIndex returns the index of the currently selected item in the visible items list
 func (m Model) getCurrentItemIndex() int {
 	if m.cursor >= 0 && m.cursor < len(m.visibleItems) {
 		return m.visibleItems[m.cursor]
@@ -311,232 +325,251 @@ func (m Model) getCurrentItemIndex() int {
 	return -1
 }
 
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		// Handle input mode separately
-		if m.inputMode {
-			switch msg.String() {
-			case "ctrl+c":
-				return m, tea.Quit
-			case "enter":
-				// Save the input
-				if m.editingIndex == -1 {
-					// Creating new item
-					itemIndex := m.getCurrentItemIndex()
-					if itemIndex >= 0 {
-						var newItem Item
-
-						if m.newSectionLevel > 0 {
-							// Create new section
-							newItem = Item{
-								Type:      TypeSection,
-								Level:     m.newSectionLevel,
-								Content:   m.inputText,
-								Checked:   nil,
-								Children:  []Item{},
-								Collapsed: false,
-							}
-						} else {
-							// Create new task
-							if m.items[itemIndex].Type == TypeSection {
-								newItem = Item{
-									Type:      TypeTask,
-									Level:     0,
-									Content:   m.inputText,
-									Checked:   new(bool),
-									Children:  []Item{},
-									Collapsed: false,
-								}
-							} else {
-								newItem = Item{
-									Type:      TypeTask,
-									Level:     m.items[itemIndex].Level,
-									Content:   m.inputText,
-									Checked:   new(bool),
-									Children:  []Item{},
-									Collapsed: false,
-								}
-							}
-						}
-
-						insertIndex := itemIndex + 1
-						m.items = append(m.items[:insertIndex], append([]Item{newItem}, m.items[insertIndex:]...)...)
-						m.updateVisibleItems()
-						m.dirty = true
-
-						// Find new position in visible items
-						for i, idx := range m.visibleItems {
-							if idx == insertIndex {
-								m.cursor = i
-								break
-							}
-						}
-					}
-				} else {
-					// Editing existing item
-					m.items[m.editingIndex].Content = m.inputText
-					m.dirty = true
-				}
-				// Exit input mode
-				m.inputMode = false
-				m.inputText = ""
-				m.editingIndex = -1
-				m.newSectionLevel = 0
-			case "esc":
-				// Cancel input
-				m.inputMode = false
-				m.inputText = ""
-				m.editingIndex = -1
-				m.newSectionLevel = 0
-			case "backspace":
-				if len(m.inputText) > 0 {
-					m.inputText = m.inputText[:len(m.inputText)-1]
-				}
-			default:
-				// Add character to input
-				if len(msg.String()) == 1 {
-					m.inputText += msg.String()
-				}
-			}
-			return m, nil
-		}
-
-		// Handle h-mode (waiting for number after 'h')
-		if m.hMode {
-			switch msg.String() {
-			case "1":
-				m.inputMode = true
-				m.inputText = ""
-				m.editingIndex = -1
-				m.newSectionLevel = 1
-				m.hMode = false
-			case "2":
-				m.inputMode = true
-				m.inputText = ""
-				m.editingIndex = -1
-				m.newSectionLevel = 2
-				m.hMode = false
-			case "3":
-				m.inputMode = true
-				m.inputText = ""
-				m.editingIndex = -1
-				m.newSectionLevel = 3
-				m.hMode = false
-			case "4":
-				m.inputMode = true
-				m.inputText = ""
-				m.editingIndex = -1
-				m.newSectionLevel = 4
-				m.hMode = false
-			case "5":
-				m.inputMode = true
-				m.inputText = ""
-				m.editingIndex = -1
-				m.newSectionLevel = 5
-				m.hMode = false
-			case "6":
-				m.inputMode = true
-				m.inputText = ""
-				m.editingIndex = -1
-				m.newSectionLevel = 6
-				m.hMode = false
-			default:
-				// Cancel h-mode on any other key
-				m.hMode = false
-			}
-			return m, nil
-		}
-
-		// Normal navigation mode
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "j", "down":
-			if m.cursor < len(m.visibleItems)-1 {
-				m.cursor++
-			}
-		case "k", "up":
-			if m.cursor > 0 {
-				m.cursor--
-			}
-		case " ":
-			itemIndex := m.getCurrentItemIndex()
-			if itemIndex >= 0 && m.items[itemIndex].Type == TypeTask {
-				checked := !*m.items[itemIndex].Checked
-				m.items[itemIndex].Checked = &checked
-				m.dirty = true
-			}
-		case "enter":
-			itemIndex := m.getCurrentItemIndex()
-			if itemIndex >= 0 && m.items[itemIndex].Type == TypeSection {
-				m.items[itemIndex].Collapsed = !m.items[itemIndex].Collapsed
-				m.updateVisibleItems()
-			}
-		case "left":
-			itemIndex := m.getCurrentItemIndex()
-			if itemIndex >= 0 && m.items[itemIndex].Type == TypeSection {
-				m.items[itemIndex].Collapsed = true
-				m.updateVisibleItems()
-			}
-		case "right":
-			itemIndex := m.getCurrentItemIndex()
-			if itemIndex >= 0 && m.items[itemIndex].Type == TypeSection {
-				m.items[itemIndex].Collapsed = false
-				m.updateVisibleItems()
-			}
-		case "n":
-			// Enter input mode for new task
-			m.inputMode = true
-			m.inputText = ""
-			m.editingIndex = -1
-			m.newSectionLevel = 0
-		case "h":
-			// Enter h-mode (waiting for number)
-			m.hMode = true
-		case "e":
-			// Enter input mode for editing current item (task or section)
+// handleInputMode processes key messages while in input mode (editing or creating items)
+func (m Model) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c":
+		return m, tea.Quit
+	case "enter":
+		// Save the input
+		if m.editingIndex == -1 {
+			// Creating new item
 			itemIndex := m.getCurrentItemIndex()
 			if itemIndex >= 0 {
-				m.inputMode = true
-				m.inputText = m.items[itemIndex].Content
-				m.editingIndex = itemIndex
-			}
-		case "alt+j", "alt+down":
-			itemIndex := m.getCurrentItemIndex()
-			if itemIndex >= 0 && itemIndex < len(m.items)-1 {
-				m.items[itemIndex], m.items[itemIndex+1] = m.items[itemIndex+1], m.items[itemIndex]
+				var newItem Item
+
+				if m.newSectionLevel > 0 {
+					// Create new section
+					newItem = Item{
+						Type:      TypeSection,
+						Level:     m.newSectionLevel,
+						Content:   m.inputText,
+						Checked:   nil,
+						Children:  []Item{},
+						Collapsed: false,
+					}
+				} else {
+					// Create new task
+					if m.items[itemIndex].Type == TypeSection {
+						newItem = Item{
+							Type:      TypeTask,
+							Level:     0,
+							Content:   m.inputText,
+							Checked:   new(bool),
+							Children:  []Item{},
+							Collapsed: false,
+						}
+					} else {
+						newItem = Item{
+							Type:      TypeTask,
+							Level:     m.items[itemIndex].Level,
+							Content:   m.inputText,
+							Checked:   new(bool),
+							Children:  []Item{},
+							Collapsed: false,
+						}
+					}
+				}
+
+				insertIndex := itemIndex + 1
+				m.items = append(m.items[:insertIndex], append([]Item{newItem}, m.items[insertIndex:]...)...)
 				m.updateVisibleItems()
 				m.dirty = true
-				if m.cursor < len(m.visibleItems)-1 {
-					m.cursor++
+
+				// Find new position in visible items
+				for i, idx := range m.visibleItems {
+					if idx == insertIndex {
+						m.cursor = i
+						break
+					}
 				}
 			}
-		case "alt+k", "alt+up":
-			itemIndex := m.getCurrentItemIndex()
-			if itemIndex > 0 {
-				m.items[itemIndex], m.items[itemIndex-1] = m.items[itemIndex-1], m.items[itemIndex]
-				m.updateVisibleItems()
-				m.dirty = true
-				if m.cursor > 0 {
-					m.cursor--
-				}
-			}
-		case "s":
-			err := m.saveToFile()
-			if err != nil {
-				return m, nil
-			}
-			m.dirty = false
-			// Update file modification time after saving
-			if fileInfo, err := os.Stat(m.filename); err == nil {
-				m.fileModTime = fileInfo.ModTime()
-			}
+		} else {
+			// Editing existing item
+			m.items[m.editingIndex].Content = m.inputText
+			m.dirty = true
+		}
+		// Exit input mode
+		m.inputMode = false
+		m.inputText = ""
+		m.editingIndex = -1
+		m.newSectionLevel = 0
+	case "esc":
+		// Cancel input
+		m.inputMode = false
+		m.inputText = ""
+		m.editingIndex = -1
+		m.newSectionLevel = 0
+	case "backspace":
+		if len(m.inputText) > 0 {
+			m.inputText = m.inputText[:len(m.inputText)-1]
+		}
+	default:
+		// Add character to input
+		if len(msg.String()) == 1 {
+			m.inputText += msg.String()
 		}
 	}
 	return m, nil
 }
 
+// handleHMode processes key messages while in h-mode (waiting for section level input)
+func (m Model) handleHMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "1":
+		m.inputMode = true
+		m.inputText = ""
+		m.editingIndex = -1
+		m.newSectionLevel = 1
+		m.hMode = false
+	case "2":
+		m.inputMode = true
+		m.inputText = ""
+		m.editingIndex = -1
+		m.newSectionLevel = 2
+		m.hMode = false
+	case "3":
+		m.inputMode = true
+		m.inputText = ""
+		m.editingIndex = -1
+		m.newSectionLevel = 3
+		m.hMode = false
+	case "4":
+		m.inputMode = true
+		m.inputText = ""
+		m.editingIndex = -1
+		m.newSectionLevel = 4
+		m.hMode = false
+	case "5":
+		m.inputMode = true
+		m.inputText = ""
+		m.editingIndex = -1
+		m.newSectionLevel = 5
+		m.hMode = false
+	case "6":
+		m.inputMode = true
+		m.inputText = ""
+		m.editingIndex = -1
+		m.newSectionLevel = 6
+		m.hMode = false
+	default:
+		// Cancel h-mode on any other key
+		m.hMode = false
+	}
+	return m, nil
+}
+
+// handleNavigation processes key messages for navigation and actions
+func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+	case "j", "down":
+		if m.cursor < len(m.visibleItems)-1 {
+			m.cursor++
+		}
+	case "k", "up":
+		if m.cursor > 0 {
+			m.cursor--
+		}
+	case " ":
+		itemIndex := m.getCurrentItemIndex()
+		if itemIndex >= 0 && m.items[itemIndex].Type == TypeTask {
+			checked := !*m.items[itemIndex].Checked
+			m.items[itemIndex].Checked = &checked
+			m.dirty = true
+		}
+	case "enter":
+		itemIndex := m.getCurrentItemIndex()
+		if itemIndex >= 0 && m.items[itemIndex].Type == TypeSection {
+			m.items[itemIndex].Collapsed = !m.items[itemIndex].Collapsed
+			m.updateVisibleItems()
+		}
+	case "left":
+		itemIndex := m.getCurrentItemIndex()
+		if itemIndex >= 0 && m.items[itemIndex].Type == TypeSection {
+			m.items[itemIndex].Collapsed = true
+			m.updateVisibleItems()
+		}
+	case "right":
+		itemIndex := m.getCurrentItemIndex()
+		if itemIndex >= 0 && m.items[itemIndex].Type == TypeSection {
+			m.items[itemIndex].Collapsed = false
+			m.updateVisibleItems()
+		}
+	case "n":
+		// Enter input mode for new task
+		m.inputMode = true
+		m.inputText = ""
+		m.editingIndex = -1
+		m.newSectionLevel = 0
+	case "h":
+		// Enter h-mode (waiting for number)
+		m.hMode = true
+	case "e":
+		// Enter input mode for editing current item (task or section)
+		itemIndex := m.getCurrentItemIndex()
+		if itemIndex >= 0 {
+			m.inputMode = true
+			m.inputText = m.items[itemIndex].Content
+			m.editingIndex = itemIndex
+		}
+	case "alt+j", "alt+down":
+		itemIndex := m.getCurrentItemIndex()
+		if itemIndex >= 0 && itemIndex < len(m.items)-1 {
+			m.items[itemIndex], m.items[itemIndex+1] = m.items[itemIndex+1], m.items[itemIndex]
+			m.updateVisibleItems()
+			m.dirty = true
+			if m.cursor < len(m.visibleItems)-1 {
+				m.cursor++
+			}
+		}
+	case "alt+k", "alt+up":
+		itemIndex := m.getCurrentItemIndex()
+		if itemIndex > 0 {
+			m.items[itemIndex], m.items[itemIndex-1] = m.items[itemIndex-1], m.items[itemIndex]
+			m.updateVisibleItems()
+			m.dirty = true
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		}
+	case "s":
+		err := m.saveToFile()
+		if err != nil {
+			return m, nil
+		}
+		m.dirty = false
+		// Update file modification time after saving
+		if fileInfo, err := os.Stat(m.filename); err == nil {
+			m.fileModTime = fileInfo.ModTime()
+		}
+	}
+
+	return m, nil
+}
+
+// Update handles user input and updates the model state
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		// Handle input mode separately
+		if m.inputMode {
+			return m.handleInputMode(msg)
+		}
+
+		// Handle h-mode (waiting for number after 'h')
+		if m.hMode {
+			return m.handleHMode(msg)
+		}
+
+		// Normal navigation mode
+		return m.handleNavigation(msg)
+	}
+	return m, nil
+}
+
+// saveToFile saves the current task list to the Markdown file
 func (m Model) saveToFile() error {
 	file, err := os.Create(m.filename)
 	if err != nil {
@@ -570,6 +603,7 @@ func (m Model) saveToFile() error {
 	return nil
 }
 
+// View renders the current model state as a string
 func (m Model) View() string {
 	var s strings.Builder
 

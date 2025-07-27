@@ -1,8 +1,8 @@
 # Test TODO
 ## n2
 #### foo
-- [x] foo
-- [x] foobar
+- [ ] foo
+- [ ] foobar
 ### n3
 ## foo
 # Section 1
