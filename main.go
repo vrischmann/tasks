@@ -743,9 +743,9 @@ func (m Model) View() string {
 				} else {
 					styledContent = highlightStyle.Render(arrowExpandedStyle.Render("▼") + " " + sectionStyle.Render(item.Content))
 				}
-				s.WriteString(fmt.Sprintf("%s  %s\n", indent, styledContent))
+				fmt.Fprintf(&s, "%s  %s\n", indent, styledContent)
 			} else {
-				s.WriteString(fmt.Sprintf("%s  %s\n", indent, sectionLine))
+				fmt.Fprintf(&s, "%s  %s\n", indent, sectionLine)
 			}
 
 		case TypeTask:
@@ -781,9 +781,9 @@ func (m Model) View() string {
 				} else {
 					styledContent = highlightStyle.Render(uncheckedBoxStyle.Render("☐") + " " + taskPendingStyle.Render(item.Content))
 				}
-				s.WriteString(fmt.Sprintf("%s  %s\n", taskIndent, styledContent))
+				fmt.Fprintf(&s, "%s  %s\n", taskIndent, styledContent)
 			} else {
-				s.WriteString(fmt.Sprintf("%s  %s\n", taskIndent, taskLine))
+				fmt.Fprintf(&s, "%s  %s\n", taskIndent, taskLine)
 			}
 		}
 	}
