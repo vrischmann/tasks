@@ -20,6 +20,10 @@ const (
 	TypeTask                    // Task item
 )
 
+const (
+	maxWidth = 80
+)
+
 // Define color scheme and styles
 var (
 	// Colors
@@ -660,10 +664,11 @@ func (m Model) renderFooter() string {
 		leftText = "Saved"
 	}
 	rightText := "File: " + m.filename
-	padding := 80 - len(leftText) - len(rightText) - 4 // 4 for padding
-	if padding < 1 {
-		padding = 1
-	}
+
+	padding := max(
+		maxWidth-len(leftText)-len(rightText),
+		1,
+	)
 
 	statusContent.WriteString(strings.Repeat(" ", padding))
 	statusContent.WriteString(filename)
@@ -729,7 +734,7 @@ func (m Model) View() string {
 			if m.cursor == visIdx {
 				// Calculate fixed width accounting for indentation
 				indentWidth := len(indent) + 2 // indent + "  "
-				highlightWidth := 70 - indentWidth
+				highlightWidth := maxWidth - indentWidth
 				highlightStyle := selectedStyle.Width(highlightWidth)
 
 				var styledContent string
@@ -767,7 +772,7 @@ func (m Model) View() string {
 			if m.cursor == visIdx {
 				// Calculate fixed width accounting for indentation
 				indentWidth := len(taskIndent) + 2 // taskIndent + "  "
-				highlightWidth := 70 - indentWidth
+				highlightWidth := maxWidth - indentWidth
 				highlightStyle := selectedStyle.Width(highlightWidth)
 
 				var styledContent string
