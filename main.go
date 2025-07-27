@@ -115,6 +115,7 @@ type Model struct {
 	editingIndex    int    // index of item being edited (-1 for new item)
 	newSectionLevel int    // level of section being created (0 = task)
 	hMode           bool   // whether we're waiting for a number after 'h'
+	dirty           bool   // whether the file has unsaved changes
 }
 
 func parseMarkdownFile(filename string) ([]Item, error) {
@@ -178,6 +179,7 @@ func initialModel(filename string) Model {
 		editingIndex:    -1,
 		newSectionLevel: 0,
 		hMode:           false,
+		dirty:           false,
 	}
 
 	m.updateVisibleItems()
@@ -300,6 +302,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						insertIndex := itemIndex + 1
 						m.items = append(m.items[:insertIndex], append([]Item{newItem}, m.items[insertIndex:]...)...)
 						m.updateVisibleItems()
+						m.dirty = true
 
 						// Find new position in visible items
 						for i, idx := range m.visibleItems {
@@ -312,6 +315,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					// Editing existing item
 					m.items[m.editingIndex].Content = m.inputText
+					m.dirty = true
 				}
 				// Exit input mode
 				m.inputMode = false
@@ -400,6 +404,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if itemIndex >= 0 && m.items[itemIndex].Type == TypeTask {
 				checked := !*m.items[itemIndex].Checked
 				m.items[itemIndex].Checked = &checked
+				m.dirty = true
 			}
 		case "enter":
 			itemIndex := m.getCurrentItemIndex()
@@ -441,6 +446,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if itemIndex >= 0 && itemIndex < len(m.items)-1 {
 				m.items[itemIndex], m.items[itemIndex+1] = m.items[itemIndex+1], m.items[itemIndex]
 				m.updateVisibleItems()
+				m.dirty = true
 				if m.cursor < len(m.visibleItems)-1 {
 					m.cursor++
 				}
@@ -450,6 +456,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if itemIndex > 0 {
 				m.items[itemIndex], m.items[itemIndex-1] = m.items[itemIndex-1], m.items[itemIndex]
 				m.updateVisibleItems()
+				m.dirty = true
 				if m.cursor > 0 {
 					m.cursor--
 				}
@@ -459,6 +466,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err != nil {
 				return m, nil
 			}
+			m.dirty = false
 		}
 	}
 	return m, nil
@@ -500,8 +508,12 @@ func (m Model) saveToFile() error {
 func (m Model) View() string {
 	var s strings.Builder
 
-	// Title
-	title := titleStyle.Render(fmt.Sprintf("📋 Tasks - %s", m.filename))
+	// Title with dirty indicator
+	titleText := fmt.Sprintf("📋 Tasks - %s", m.filename)
+	if m.dirty {
+		titleText += " *"
+	}
+	title := titleStyle.Render(titleText)
 	s.WriteString(title + "\n\n")
 
 	if len(m.items) == 0 {

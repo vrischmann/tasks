@@ -1,9 +1,9 @@
 # Test TODO
 ## n2
 #### foo
-### n3
 - [x] foo
 - [x] foobar
+### n3
 ## foo
 # Section 1
 - [ ] New task
