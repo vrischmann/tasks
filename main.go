@@ -562,7 +562,7 @@ func (m Model) saveToFile() error {
 }
 
 // renderBanner generates a stylized banner for the application
-func renderBanner() string {
+func renderBanner(w io.Writer) {
 	// Block-style ASCII art for "Tasks" with left arrow pattern like Gemini CLI
 	lines := []string{
 		"███           ████████  █████   ███████ ██   ██ ███████",
@@ -573,8 +573,6 @@ func renderBanner() string {
 	}
 
 	// Apply gradient coloring - each character gets a color based on position
-	var result strings.Builder
-
 	for _, line := range lines {
 		totalWidth := len(line)
 		for i, char := range line {
@@ -600,12 +598,10 @@ func renderBanner() string {
 				style = bannerWhite
 			}
 
-			result.WriteString(style.Render(string(char)))
+			w.Write([]byte(style.Render(string(char))))
 		}
-		result.WriteString("\n")
+		w.Write([]byte("\n"))
 	}
-
-	return result.String()
 }
 
 func (m Model) renderVisibleItems(w io.Writer) {
@@ -709,13 +705,12 @@ func (m Model) renderVisibleItems(w io.Writer) {
 }
 
 // renderInput renders the input field when in input mode
-func (m Model) renderInput() string {
+func (m Model) renderInput(w io.Writer) {
 	if !m.inputMode {
-		return ""
+		return
 	}
 
-	var s strings.Builder
-	s.WriteString("\n")
+	w.Write([]byte("\n"))
 
 	var prompt string
 	if m.editingIndex == -1 {
@@ -735,54 +730,47 @@ func (m Model) renderInput() string {
 	// Create input content with cursor inside the border
 	inputContent := m.inputText + "│"
 	inputField := inputStyle.Render(inputContent)
-	s.WriteString(prompt + " " + inputField + "\n")
-	s.WriteString(helpStyle.Render("Press Enter to save, Esc to cancel") + "\n")
-
-	return s.String()
+	w.Write([]byte(prompt + " " + inputField + "\n"))
+	w.Write([]byte(helpStyle.Render("Press Enter to save, Esc to cancel") + "\n"))
 }
 
 // renderFooter renders the status footer
-func (m Model) renderFooter() string {
-	var statusContent strings.Builder
-
+func (m Model) renderFooter(w io.Writer) {
 	// Left side: dirty status
+	var leftText string
 	if m.dirty {
-		dirty := dirtyIndicatorStyle.Render("● Modified")
-		statusContent.WriteString(dirty)
+		leftText = dirtyIndicatorStyle.Render("● Modified")
 	} else {
-		saved := lastUpdateStyle.Render("Saved")
-		statusContent.WriteString(saved)
+		leftText = lastUpdateStyle.Render("Saved")
 	}
+	w.Write([]byte(leftText))
 
 	// Right side: filename
 	filename := lastUpdateStyle.Render("File: " + m.filename)
 
 	// Calculate spacing to right-align the filename
-	leftText := ""
+	leftTextPlain := ""
 	if m.dirty {
-		leftText = "● Modified"
+		leftTextPlain = "● Modified"
 	} else {
-		leftText = "Saved"
+		leftTextPlain = "Saved"
 	}
 	rightText := "File: " + m.filename
+	padding := 80 - len(leftTextPlain) - len(rightText) - 4 // 4 for padding
+	if padding < 1 {
+		padding = 1
+	}
 
-	padding := max(
-		maxWidth-len(leftText)-len(rightText),
-		1,
-	)
-
-	statusContent.WriteString(strings.Repeat(" ", padding))
-	statusContent.WriteString(filename)
-
-	return statusContent.String()
+	w.Write([]byte(strings.Repeat(" ", padding)))
+	w.Write([]byte(filename))
 }
 
 // View renders the current model state as a string
 func (m Model) View() string {
 	var s strings.Builder
 
-	// Add the gradient banner at the top
-	s.WriteString(renderBanner())
+	// Render banner
+	renderBanner(&s)
 	s.WriteString("\n")
 
 	if len(m.items) == 0 {
@@ -795,11 +783,11 @@ func (m Model) View() string {
 	m.renderVisibleItems(&s)
 
 	// Render input if necessary
-	s.WriteString(m.renderInput())
+	m.renderInput(&s)
 
 	// Render footer
 	s.WriteString("\n")
-	s.WriteString(m.renderFooter())
+	m.renderFooter(&s)
 
 	return s.String()
 }
