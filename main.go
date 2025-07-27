@@ -598,9 +598,9 @@ func renderBanner(w io.Writer) {
 				style = bannerWhite
 			}
 
-			w.Write([]byte(style.Render(string(char))))
+			io.WriteString(w, style.Render(string(char)))
 		}
-		w.Write([]byte("\n"))
+		io.WriteString(w, "\n")
 	}
 }
 
@@ -710,7 +710,7 @@ func (m Model) renderInput(w io.Writer) {
 		return
 	}
 
-	w.Write([]byte("\n"))
+	io.WriteString(w, "\n")
 
 	var prompt string
 	if m.editingIndex == -1 {
@@ -730,8 +730,8 @@ func (m Model) renderInput(w io.Writer) {
 	// Create input content with cursor inside the border
 	inputContent := m.inputText + "│"
 	inputField := inputStyle.Render(inputContent)
-	w.Write([]byte(prompt + " " + inputField + "\n"))
-	w.Write([]byte(helpStyle.Render("Press Enter to save, Esc to cancel") + "\n"))
+	io.WriteString(w, prompt+" "+inputField+"\n")
+	io.WriteString(w, helpStyle.Render("Press Enter to save, Esc to cancel")+"\n")
 }
 
 // renderFooter renders the status footer
@@ -743,7 +743,7 @@ func (m Model) renderFooter(w io.Writer) {
 	} else {
 		leftText = lastUpdateStyle.Render("Saved")
 	}
-	w.Write([]byte(leftText))
+	io.WriteString(w, leftText)
 
 	// Right side: filename
 	filename := lastUpdateStyle.Render("File: " + m.filename)
@@ -759,8 +759,8 @@ func (m Model) renderFooter(w io.Writer) {
 	rightText := "File: " + m.filename
 	padding := max(maxWidth-len(leftTextPlain)-len(rightText), 1)
 
-	w.Write([]byte(strings.Repeat(" ", padding)))
-	w.Write([]byte(filename))
+	io.WriteString(w, strings.Repeat(" ", padding))
+	io.WriteString(w, filename)
 }
 
 // View renders the current model state as a string
