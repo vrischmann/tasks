@@ -31,21 +31,28 @@ var (
 
 	// Top bar styles
 	topBarStyle = lipgloss.NewStyle().
-		Foreground(textColor).
-		Padding(0, 2).
-		Width(80)
-	
+			Foreground(textColor).
+			Padding(0, 2).
+			Width(80)
+
 	titleStyle = lipgloss.NewStyle().
-		Foreground(primaryColor).
-		Bold(true)
-	
+			Foreground(primaryColor).
+			Bold(true)
+
 	dirtyIndicatorStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#F59E0B")).
-		Bold(true)
-	
+				Foreground(lipgloss.Color("#F59E0B")).
+				Bold(true)
+
 	lastUpdateStyle = lipgloss.NewStyle().
-		Foreground(mutedColor).
-		Italic(true)
+			Foreground(mutedColor).
+			Italic(true)
+
+	// Status line style
+	statusLineStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("#374151")).
+			Foreground(textColor).
+			Padding(0, 2).
+			Width(80)
 
 	// Section styles
 	sectionStyle = lipgloss.NewStyle().
@@ -533,36 +540,9 @@ func (m Model) saveToFile() error {
 func (m Model) View() string {
 	var s strings.Builder
 
-	// Top bar with title, dirty status, and last update
-	var topBarContent strings.Builder
-	
-	// Left side: title and dirty indicator
+	// Simple header with just title
 	title := titleStyle.Render("📋 Tasks - " + m.filename)
-	topBarContent.WriteString(title)
-	
-	if m.dirty {
-		dirty := dirtyIndicatorStyle.Render(" ●")
-		topBarContent.WriteString(dirty)
-	}
-	
-	// Right side: file modification time
-	timeStr := m.fileModTime.Format("15:04")
-	lastUpdate := lastUpdateStyle.Render(timeStr)
-	
-	// Calculate spacing to right-align the time
-	leftContent := "📋 Tasks - " + m.filename
-	if m.dirty {
-		leftContent += " ●"
-	}
-	padding := 80 - len(leftContent) - len(timeStr) - 4 // 4 for padding
-	if padding < 1 {
-		padding = 1
-	}
-	
-	topBarContent.WriteString(strings.Repeat(" ", padding))
-	topBarContent.WriteString(lastUpdate)
-	
-	topBar := topBarStyle.Render(topBarContent.String())
+	topBar := topBarStyle.Render(title)
 	s.WriteString(topBar + "\n\n")
 
 	if len(m.items) == 0 {
@@ -691,27 +671,43 @@ func (m Model) View() string {
 		inputField := inputStyle.Render(inputContent)
 		s.WriteString(prompt + " " + inputField + "\n")
 		s.WriteString(helpStyle.Render("Press Enter to save, Esc to cancel") + "\n")
-	} else {
-		// Help text with better styling
-		var helpText string
-		if m.hMode {
-			helpText = helpStyle.Render("\nPress 1-6 to create section level (h1-h6), any other key to cancel")
-		} else {
-			helpText = helpStyle.Render("\n" +
-				"Controls: " +
-				"j/k (navigate) • " +
-				"space (toggle) • " +
-				"enter/←/→ (collapse/expand) • " +
-				"n (new task) • " +
-				"h1-h6 (new section) • " +
-				"e (edit) • " +
-				"alt+j/k (move) • " +
-				"s (save) • " +
-				"q (quit)")
-		}
-
-		s.WriteString(helpText + "\n")
 	}
+
+	// Status line at bottom
+	s.WriteString("\n")
+	var statusContent strings.Builder
+
+	// Left side: dirty status
+	if m.dirty {
+		dirty := dirtyIndicatorStyle.Render("● Modified")
+		statusContent.WriteString(dirty)
+	} else {
+		saved := lastUpdateStyle.Render("Saved")
+		statusContent.WriteString(saved)
+	}
+
+	// Right side: file modification time
+	timeStr := m.fileModTime.Format("15:04:05")
+	lastUpdate := lastUpdateStyle.Render("Last: " + timeStr)
+
+	// Calculate spacing to right-align the time
+	leftText := ""
+	if m.dirty {
+		leftText = "● Modified"
+	} else {
+		leftText = "Saved"
+	}
+	rightText := "Last: " + timeStr
+	padding := 80 - len(leftText) - len(rightText) - 4 // 4 for padding
+	if padding < 1 {
+		padding = 1
+	}
+
+	statusContent.WriteString(strings.Repeat(" ", padding))
+	statusContent.WriteString(lastUpdate)
+
+	statusLine := statusLineStyle.Render(statusContent.String())
+	s.WriteString(statusLine)
 
 	return s.String()
 }
