@@ -22,22 +22,13 @@ const (
 // Define color scheme and styles
 var (
 	// Colors
-	primaryColor    = lipgloss.Color("#7C3AED") // Purple
-	accentColor     = lipgloss.Color("#EC4899") // Pink
-	successColor    = lipgloss.Color("#10B981") // Green
-	mutedColor      = lipgloss.Color("#6B7280") // Gray
-	backgroundColor = lipgloss.Color("#1F2937") // Dark gray
-	textColor       = lipgloss.Color("#F9FAFB") // Light gray
+	primaryColor = lipgloss.Color("#7C3AED") // Purple
+	accentColor  = lipgloss.Color("#EC4899") // Pink
+	successColor = lipgloss.Color("#10B981") // Green
+	mutedColor   = lipgloss.Color("#6B7280") // Gray
+	textColor    = lipgloss.Color("#F9FAFB") // Light gray
 
 	// Top bar styles
-	topBarStyle = lipgloss.NewStyle().
-			Foreground(textColor).
-			Padding(0, 2).
-			Width(80)
-
-	titleStyle = lipgloss.NewStyle().
-			Foreground(primaryColor).
-			Bold(true)
 
 	dirtyIndicatorStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#F59E0B")).
@@ -46,13 +37,6 @@ var (
 	lastUpdateStyle = lipgloss.NewStyle().
 			Foreground(mutedColor).
 			Italic(true)
-
-	// Status line style
-	statusLineStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#374151")).
-			Foreground(textColor).
-			Padding(0, 2).
-			Width(80)
 
 	// Section styles
 	sectionStyle = lipgloss.NewStyle().
@@ -75,11 +59,6 @@ var (
 	selectedStyle = lipgloss.NewStyle().
 			Background(lipgloss.Color("#374151")).
 			Bold(true)
-
-	// Main container style
-	containerStyle = lipgloss.NewStyle().
-			Width(80).
-			Padding(0, 2)
 
 	// Checkbox styles
 	checkedBoxStyle = lipgloss.NewStyle().
