@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -607,6 +608,106 @@ func renderBanner() string {
 	return result.String()
 }
 
+func (m Model) renderVisibleItems(w io.Writer) {
+	var sectionStack []*Item // Stack to track sections for indentation
+
+	for visIdx, itemIndex := range m.visibleItems {
+		item := m.items[itemIndex]
+
+		// Update section stack by finding all sections up to this item
+		sectionStack = []*Item{}
+		for i := range itemIndex {
+			if m.items[i].Type == TypeSection {
+				// Update stack based on level
+				for len(sectionStack) > 0 && sectionStack[len(sectionStack)-1].Level >= m.items[i].Level {
+					sectionStack = sectionStack[:len(sectionStack)-1]
+				}
+				sectionStack = append(sectionStack, &m.items[i])
+			}
+		}
+
+		switch item.Type {
+		case TypeSection:
+			// Calculate indentation (level 1 = 0 spaces, level 2 = 2 spaces, etc.)
+			indent := strings.Repeat("  ", item.Level-1)
+
+			// Style the arrow based on collapsed state
+			var arrow string
+			if item.Collapsed {
+				arrow = arrowCollapsedStyle.Render("▶")
+			} else {
+				arrow = arrowExpandedStyle.Render("▼")
+			}
+
+			// Style section text based on collapsed state
+			var sectionText string
+			if item.Collapsed {
+				sectionText = sectionCollapsedStyle.Render(item.Content)
+			} else {
+				sectionText = sectionStyle.Render(item.Content)
+			}
+
+			sectionLine := fmt.Sprintf("%s %s", arrow, sectionText)
+
+			// Highlight current section
+			if m.cursor == visIdx {
+				// Calculate fixed width accounting for indentation
+				indentWidth := len(indent) + 2 // indent + "  "
+				highlightWidth := maxWidth - indentWidth
+				highlightStyle := selectedStyle.Width(highlightWidth)
+
+				var styledContent string
+				if item.Collapsed {
+					styledContent = highlightStyle.Render(arrowCollapsedStyle.Render("▶") + " " + sectionCollapsedStyle.Render(item.Content))
+				} else {
+					styledContent = highlightStyle.Render(arrowExpandedStyle.Render("▼") + " " + sectionStyle.Render(item.Content))
+				}
+				fmt.Fprintf(w, "%s  %s\n", indent, styledContent)
+			} else {
+				fmt.Fprintf(w, "%s  %s\n", indent, sectionLine)
+			}
+
+		case TypeTask:
+			// Style checkbox and task text based on completion status
+			var checkbox, taskText string
+			if item.Checked != nil && *item.Checked {
+				checkbox = checkedBoxStyle.Render("☒")
+				taskText = taskCompletedStyle.Render(item.Content)
+			} else {
+				checkbox = uncheckedBoxStyle.Render("☐")
+				taskText = taskPendingStyle.Render(item.Content)
+			}
+
+			// Task indentation is based on the deepest section level + 1
+			taskIndent := ""
+			if len(sectionStack) > 0 {
+				deepestLevel := sectionStack[len(sectionStack)-1].Level
+				taskIndent = strings.Repeat("  ", deepestLevel)
+			}
+
+			taskLine := fmt.Sprintf("%s %s", checkbox, taskText)
+
+			// Style the current task differently
+			if m.cursor == visIdx {
+				// Calculate fixed width accounting for indentation
+				indentWidth := len(taskIndent) + 2 // taskIndent + "  "
+				highlightWidth := maxWidth - indentWidth
+				highlightStyle := selectedStyle.Width(highlightWidth)
+
+				var styledContent string
+				if item.Checked != nil && *item.Checked {
+					styledContent = highlightStyle.Render(checkedBoxStyle.Render("☒") + " " + taskCompletedStyle.Render(item.Content))
+				} else {
+					styledContent = highlightStyle.Render(uncheckedBoxStyle.Render("☐") + " " + taskPendingStyle.Render(item.Content))
+				}
+				fmt.Fprintf(w, "%s  %s\n", taskIndent, styledContent)
+			} else {
+				fmt.Fprintf(w, "%s  %s\n", taskIndent, taskLine)
+			}
+		}
+	}
+}
+
 // renderInput renders the input field when in input mode
 func (m Model) renderInput() string {
 	if !m.inputMode {
@@ -690,103 +791,8 @@ func (m Model) View() string {
 		return s.String()
 	}
 
-	var sectionStack []*Item // Stack to track sections for indentation
-
-	for visIdx, itemIndex := range m.visibleItems {
-		item := m.items[itemIndex]
-
-		// Update section stack by finding all sections up to this item
-		sectionStack = []*Item{}
-		for i := range itemIndex {
-			if m.items[i].Type == TypeSection {
-				// Update stack based on level
-				for len(sectionStack) > 0 && sectionStack[len(sectionStack)-1].Level >= m.items[i].Level {
-					sectionStack = sectionStack[:len(sectionStack)-1]
-				}
-				sectionStack = append(sectionStack, &m.items[i])
-			}
-		}
-
-		switch item.Type {
-		case TypeSection:
-			// Calculate indentation (level 1 = 0 spaces, level 2 = 2 spaces, etc.)
-			indent := strings.Repeat("  ", item.Level-1)
-
-			// Style the arrow based on collapsed state
-			var arrow string
-			if item.Collapsed {
-				arrow = arrowCollapsedStyle.Render("▶")
-			} else {
-				arrow = arrowExpandedStyle.Render("▼")
-			}
-
-			// Style section text based on collapsed state
-			var sectionText string
-			if item.Collapsed {
-				sectionText = sectionCollapsedStyle.Render(item.Content)
-			} else {
-				sectionText = sectionStyle.Render(item.Content)
-			}
-
-			sectionLine := fmt.Sprintf("%s %s", arrow, sectionText)
-
-			// Highlight current section
-			if m.cursor == visIdx {
-				// Calculate fixed width accounting for indentation
-				indentWidth := len(indent) + 2 // indent + "  "
-				highlightWidth := maxWidth - indentWidth
-				highlightStyle := selectedStyle.Width(highlightWidth)
-
-				var styledContent string
-				if item.Collapsed {
-					styledContent = highlightStyle.Render(arrowCollapsedStyle.Render("▶") + " " + sectionCollapsedStyle.Render(item.Content))
-				} else {
-					styledContent = highlightStyle.Render(arrowExpandedStyle.Render("▼") + " " + sectionStyle.Render(item.Content))
-				}
-				fmt.Fprintf(&s, "%s  %s\n", indent, styledContent)
-			} else {
-				fmt.Fprintf(&s, "%s  %s\n", indent, sectionLine)
-			}
-
-		case TypeTask:
-			// Style checkbox and task text based on completion status
-			var checkbox, taskText string
-			if item.Checked != nil && *item.Checked {
-				checkbox = checkedBoxStyle.Render("☒")
-				taskText = taskCompletedStyle.Render(item.Content)
-			} else {
-				checkbox = uncheckedBoxStyle.Render("☐")
-				taskText = taskPendingStyle.Render(item.Content)
-			}
-
-			// Task indentation is based on the deepest section level + 1
-			taskIndent := ""
-			if len(sectionStack) > 0 {
-				deepestLevel := sectionStack[len(sectionStack)-1].Level
-				taskIndent = strings.Repeat("  ", deepestLevel)
-			}
-
-			taskLine := fmt.Sprintf("%s %s", checkbox, taskText)
-
-			// Style the current task differently
-			if m.cursor == visIdx {
-				// Calculate fixed width accounting for indentation
-				indentWidth := len(taskIndent) + 2 // taskIndent + "  "
-				highlightWidth := maxWidth - indentWidth
-				highlightStyle := selectedStyle.Width(highlightWidth)
-
-				var styledContent string
-				if item.Checked != nil && *item.Checked {
-					styledContent = highlightStyle.Render(checkedBoxStyle.Render("☒") + " " + taskCompletedStyle.Render(item.Content))
-				} else {
-					styledContent = highlightStyle.Render(uncheckedBoxStyle.Render("☐") + " " + taskPendingStyle.Render(item.Content))
-				}
-				fmt.Fprintf(&s, "%s  %s\n", taskIndent, styledContent)
-			} else {
-				fmt.Fprintf(&s, "%s  %s\n", taskIndent, taskLine)
-			}
-		}
-	}
+	// Render visible items
+	m.renderVisibleItems(&s)
 
 	// Render input if necessary
 	s.WriteString(m.renderInput())
