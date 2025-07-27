@@ -603,6 +603,74 @@ func renderBanner() string {
 	return result.String()
 }
 
+// renderInput renders the input field when in input mode
+func (m Model) renderInput() string {
+	if !m.inputMode {
+		return ""
+	}
+
+	var s strings.Builder
+	s.WriteString("\n")
+
+	var prompt string
+	if m.editingIndex == -1 {
+		if m.newSectionLevel > 0 {
+			prompt = inputPromptStyle.Render(fmt.Sprintf("New h%d section:", m.newSectionLevel))
+		} else {
+			prompt = inputPromptStyle.Render("New task:")
+		}
+	} else {
+		if m.items[m.editingIndex].Type == TypeSection {
+			prompt = inputPromptStyle.Render("Edit section:")
+		} else {
+			prompt = inputPromptStyle.Render("Edit task:")
+		}
+	}
+
+	// Create input content with cursor inside the border
+	inputContent := m.inputText + "│"
+	inputField := inputStyle.Render(inputContent)
+	s.WriteString(prompt + " " + inputField + "\n")
+	s.WriteString(helpStyle.Render("Press Enter to save, Esc to cancel") + "\n")
+
+	return s.String()
+}
+
+// renderFooter renders the status footer
+func (m Model) renderFooter() string {
+	var statusContent strings.Builder
+
+	// Left side: dirty status
+	if m.dirty {
+		dirty := dirtyIndicatorStyle.Render("● Modified")
+		statusContent.WriteString(dirty)
+	} else {
+		saved := lastUpdateStyle.Render("Saved")
+		statusContent.WriteString(saved)
+	}
+
+	// Right side: filename
+	filename := lastUpdateStyle.Render("File: " + m.filename)
+
+	// Calculate spacing to right-align the filename
+	leftText := ""
+	if m.dirty {
+		leftText = "● Modified"
+	} else {
+		leftText = "Saved"
+	}
+	rightText := "File: " + m.filename
+	padding := 80 - len(leftText) - len(rightText) - 4 // 4 for padding
+	if padding < 1 {
+		padding = 1
+	}
+
+	statusContent.WriteString(strings.Repeat(" ", padding))
+	statusContent.WriteString(filename)
+
+	return statusContent.String()
+}
+
 // View renders the current model state as a string
 func (m Model) View() string {
 	var s strings.Builder
@@ -715,60 +783,12 @@ func (m Model) View() string {
 		}
 	}
 
-	// Show input field if in input mode
-	if m.inputMode {
-		s.WriteString("\n")
-		var prompt string
-		if m.editingIndex == -1 {
-			if m.newSectionLevel > 0 {
-				prompt = inputPromptStyle.Render(fmt.Sprintf("New h%d section:", m.newSectionLevel))
-			} else {
-				prompt = inputPromptStyle.Render("New task:")
-			}
-		} else {
-			if m.items[m.editingIndex].Type == TypeSection {
-				prompt = inputPromptStyle.Render("Edit section:")
-			} else {
-				prompt = inputPromptStyle.Render("Edit task:")
-			}
-		}
-		// Create input content with cursor inside the border
-		inputContent := m.inputText + "│"
-		inputField := inputStyle.Render(inputContent)
-		s.WriteString(prompt + " " + inputField + "\n")
-		s.WriteString(helpStyle.Render("Press Enter to save, Esc to cancel") + "\n")
-	}
+	// Render input if necessary
+	s.WriteString(m.renderInput())
 
-	// Status line at bottom
+	// Render footer
 	s.WriteString("\n")
-	var statusContent strings.Builder
-
-	// Left side: dirty status
-	if m.dirty {
-		dirty := dirtyIndicatorStyle.Render("● Modified")
-		statusContent.WriteString(dirty)
-	} else {
-		saved := lastUpdateStyle.Render("Saved")
-		statusContent.WriteString(saved)
-	}
-
-	// Right side: filename
-	filename := lastUpdateStyle.Render("File: " + m.filename)
-
-	// Calculate spacing to right-align the filename
-	leftText := ""
-	if m.dirty {
-		leftText = "● Modified"
-	} else {
-		leftText = "Saved"
-	}
-	rightText := "File: " + m.filename
-	padding := max(80-len(leftText)-len(rightText)-4, 1)
-
-	statusContent.WriteString(strings.Repeat(" ", padding))
-	statusContent.WriteString(filename)
-
-	s.WriteString(statusContent.String())
+	s.WriteString(m.renderFooter())
 
 	return s.String()
 }
