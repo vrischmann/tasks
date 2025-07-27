@@ -28,7 +28,7 @@ go build && ./tasks demo.md  # Quick test
 
 ## Application Architecture
 
-### Core Components (577 lines, single-file architecture)
+### Core Components (673 lines, single-file architecture)
 
 - **Module**: `dev.rischmann.fr/tasks`
 - **Go Version**: 1.24.5
@@ -53,12 +53,14 @@ type Item struct {
 }
 
 type Model struct {
-    items        []Item  // All parsed items
-    cursor       int     // Current selection in visibleItems
-    visibleItems []int   // Indices of currently visible items
-    inputMode    bool    // Whether in text input mode
-    inputText    string  // Current input text
-    editingIndex int     // Index of item being edited (-1 for new)
+    items           []Item  // All parsed items
+    cursor          int     // Current selection in visibleItems
+    visibleItems    []int   // Indices of currently visible items
+    inputMode       bool    // Whether in text input mode
+    inputText       string  // Current input text
+    editingIndex    int     // Index of item being edited (-1 for new)
+    newSectionLevel int     // Level of section being created (0 = task)
+    hMode          bool     // Whether waiting for number after 'h'
 }
 ```
 
@@ -66,17 +68,20 @@ type Model struct {
 
 ### Navigation & Controls
 - `j`/`k` or `↑`/`↓` - Navigate between sections and tasks
-- `space` - Toggle task completion (✓/○)
+- `space` - Toggle task completion (☒/☐)
 - `enter` - Toggle section expand/collapse
 - `←` - Collapse current section
 - `→` - Expand current section
 - `n` - Create new task (enters input mode)
-- `e` - Edit current task content (enters input mode)
-- `Alt+j`/`Alt+k` - Move items up/down
+- `h1`-`h6` - Create new section at specified level (two-key sequence)
+- `e` - Edit current task or section content (enters input mode)
+- `Alt+j`/`Alt+k` or `Alt+↓`/`Alt+↑` - Move items up/down
 - `s` - Save changes to file
 - `q` - Quit application
 
 ### Input Mode
+- Unified input system for tasks and sections
+- Context-aware prompts ("New task:", "Edit section:", "New h2 section:")
 - Text input with live cursor display (│)
 - `Enter` - Save input and exit input mode
 - `Esc` - Cancel input and exit input mode
@@ -86,9 +91,10 @@ type Model struct {
 ### Visual Design (lipgloss styling)
 - **Color Scheme**: Purple primary, pink accents, green success, gray muted
 - **Sections**: Pink text when expanded, gray when collapsed, with ▼/▶ arrows
-- **Tasks**: Green ✓ for completed (with strikethrough), gray ○ for pending
-- **Selection**: Subtle gray background highlighting with ► indicator
+- **Tasks**: Green ☒ for completed (with strikethrough), gray ☐ for pending
+- **Smart Highlighting**: Fixed-width background highlighting that adapts to indentation
 - **Tree Structure**: Proper indentation for nested sections (2 spaces per level)
+- **Clean Selection**: Background-only highlighting without distracting arrows
 
 ## File Structure
 
@@ -121,13 +127,24 @@ type Model struct {
 - `visibleItems` tracks which items are shown (handles section collapse)
 - Navigation cursor works on visible items only
 - Input mode completely overrides normal navigation
+- Two-key sequence handling with `hMode` state for section creation
 - Section stack tracking for proper indentation display
+- Dynamic highlight width calculation based on indentation level
 
 ### Styling Architecture
 - All styles defined as global variables using lipgloss
 - Consistent color scheme throughout application
-- Subtle selection highlighting that preserves original text colors
-- Professional terminal UI with Unicode symbols
+- Smart highlighting system with dynamic width calculation
+- Fixed-width selection highlighting (70 chars minus indentation)
+- Professional terminal UI with modern Unicode symbols (☐/☒)
+- Background-only highlighting prevents text jumping
+
+### Recent Improvements
+- **Smart Highlighting**: Fixed-width background highlighting that prevents text jumping
+- **Section Creation**: Two-key sequences (h1-h6) for precise section level creation
+- **Enhanced Movement**: Support for both vim-style (Alt+j/k) and arrow (Alt+↑/↓) movement
+- **Visual Polish**: Modern checkbox symbols (☐/☒) and clean background-only selection
+- **Unified Input**: Single input system handles both task and section creation/editing
 
 ### Known Limitations
 - Single-line tasks only (no multiline content support)
@@ -135,13 +152,16 @@ type Model struct {
 - No undo/redo functionality
 - No search/filter capabilities
 - No configuration file support
+- No task due dates or priorities
 
 ## Common Development Tasks
 
 ### Adding new key bindings
 1. Add case in `Update()` function switch statement
-2. Update help text in `View()` function
-3. Test with both navigation and input modes
+2. Handle special modes (hMode, inputMode) if needed
+3. Update help text in `View()` function
+4. Test with both navigation and input modes
+5. Consider two-key sequences for complex operations
 
 ### Modifying visual styling
 1. Update color variables at top of file
