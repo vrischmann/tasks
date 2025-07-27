@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -28,13 +29,23 @@ var (
 	backgroundColor = lipgloss.Color("#1F2937") // Dark gray
 	textColor       = lipgloss.Color("#F9FAFB") // Light gray
 
-	// Title style
+	// Top bar styles
+	topBarStyle = lipgloss.NewStyle().
+		Foreground(textColor).
+		Padding(0, 2).
+		Width(80)
+	
 	titleStyle = lipgloss.NewStyle().
-			Foreground(primaryColor).
-			Bold(true).
-			Padding(0, 1).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(primaryColor)
+		Foreground(primaryColor).
+		Bold(true)
+	
+	dirtyIndicatorStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#F59E0B")).
+		Bold(true)
+	
+	lastUpdateStyle = lipgloss.NewStyle().
+		Foreground(mutedColor).
+		Italic(true)
 
 	// Section styles
 	sectionStyle = lipgloss.NewStyle().
@@ -109,13 +120,14 @@ type Model struct {
 	items           []Item
 	cursor          int
 	filename        string
-	visibleItems    []int  // indices of items that are currently visible (sections and tasks)
-	inputMode       bool   // whether we're in input mode
-	inputText       string // text being typed
-	editingIndex    int    // index of item being edited (-1 for new item)
-	newSectionLevel int    // level of section being created (0 = task)
-	hMode           bool   // whether we're waiting for a number after 'h'
-	dirty           bool   // whether the file has unsaved changes
+	visibleItems    []int     // indices of items that are currently visible (sections and tasks)
+	inputMode       bool      // whether we're in input mode
+	inputText       string    // text being typed
+	editingIndex    int       // index of item being edited (-1 for new item)
+	newSectionLevel int       // level of section being created (0 = task)
+	hMode           bool      // whether we're waiting for a number after 'h'
+	dirty           bool      // whether the file has unsaved changes
+	fileModTime     time.Time // file modification time
 }
 
 func parseMarkdownFile(filename string) ([]Item, error) {
@@ -169,6 +181,14 @@ func initialModel(filename string) Model {
 		items = []Item{}
 	}
 
+	// Get file modification time
+	var modTime time.Time
+	if fileInfo, err := os.Stat(filename); err == nil {
+		modTime = fileInfo.ModTime()
+	} else {
+		modTime = time.Now()
+	}
+
 	m := Model{
 		items:           items,
 		cursor:          0,
@@ -180,6 +200,7 @@ func initialModel(filename string) Model {
 		newSectionLevel: 0,
 		hMode:           false,
 		dirty:           false,
+		fileModTime:     modTime,
 	}
 
 	m.updateVisibleItems()
@@ -467,6 +488,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			m.dirty = false
+			// Update file modification time after saving
+			if fileInfo, err := os.Stat(m.filename); err == nil {
+				m.fileModTime = fileInfo.ModTime()
+			}
 		}
 	}
 	return m, nil
@@ -508,13 +533,37 @@ func (m Model) saveToFile() error {
 func (m Model) View() string {
 	var s strings.Builder
 
-	// Title with dirty indicator
-	titleText := fmt.Sprintf("📋 Tasks - %s", m.filename)
+	// Top bar with title, dirty status, and last update
+	var topBarContent strings.Builder
+	
+	// Left side: title and dirty indicator
+	title := titleStyle.Render("📋 Tasks - " + m.filename)
+	topBarContent.WriteString(title)
+	
 	if m.dirty {
-		titleText += " *"
+		dirty := dirtyIndicatorStyle.Render(" ●")
+		topBarContent.WriteString(dirty)
 	}
-	title := titleStyle.Render(titleText)
-	s.WriteString(title + "\n\n")
+	
+	// Right side: file modification time
+	timeStr := m.fileModTime.Format("15:04")
+	lastUpdate := lastUpdateStyle.Render(timeStr)
+	
+	// Calculate spacing to right-align the time
+	leftContent := "📋 Tasks - " + m.filename
+	if m.dirty {
+		leftContent += " ●"
+	}
+	padding := 80 - len(leftContent) - len(timeStr) - 4 // 4 for padding
+	if padding < 1 {
+		padding = 1
+	}
+	
+	topBarContent.WriteString(strings.Repeat(" ", padding))
+	topBarContent.WriteString(lastUpdate)
+	
+	topBar := topBarStyle.Render(topBarContent.String())
+	s.WriteString(topBar + "\n\n")
 
 	if len(m.items) == 0 {
 		noTasksMsg := taskPendingStyle.Render("No tasks found. Press 'q' to quit.")
