@@ -4,13 +4,15 @@ A beautiful, interactive terminal application for managing tasks stored in markd
 
 ## Features
 
-✨ **Interactive Terminal UI** - Navigate with Vim-style keys  
-📋 **Markdown Integration** - Works with standard markdown task lists  
-🌳 **Hierarchical Structure** - Support for nested sections and tasks  
-🎨 **Beautiful Styling** - Modern colors and typography  
-⚡ **Live Editing** - Create and edit tasks in-place  
-💾 **Auto-save** - Save changes back to your markdown files  
-🔄 **Task Management** - Toggle completion, move tasks, collapse sections  
+✨ **Interactive Terminal UI** - Navigate with Vim-style keys
+📋 **Markdown Integration** - Works with standard markdown task lists
+🌳 **Hierarchical Structure** - Support for nested sections and tasks
+🎨 **Beautiful Styling** - Modern colors, typography, and consistent highlighting
+⚡ **Live Editing** - Create and edit tasks and sections in-place
+💾 **Auto-save** - Save changes back to your markdown files
+🔄 **Task Management** - Toggle completion, move tasks, collapse sections
+🎯 **Section Creation** - Quick section creation with h1-h6 shortcuts
+✨ **Smart Highlighting** - Fixed-width highlighting that adapts to indentation
 
 ## Installation
 
@@ -75,11 +77,11 @@ The application works with standard markdown task lists:
 ### Task Management
 | Key | Action |
 |-----|--------|
-| `space` | Toggle task completion (✓/○) |
+| `space` | Toggle task completion (☒/☐) |
 | `n` | Create new task |
 | `e` | Edit current task or section |
-| `Alt+j` | Move item down |
-| `Alt+k` | Move item up |
+| `Alt+j` / `Alt+↓` | Move item down |
+| `Alt+k` / `Alt+↑` | Move item up |
 
 ### Section Management
 | Key | Action |
@@ -114,11 +116,11 @@ When creating or editing tasks:
 
 ## Visual Elements
 
-- **✓** Completed tasks (green, with strikethrough)
-- **○** Pending tasks (gray)
+- **☒** Completed tasks (green, with strikethrough)
+- **☐** Pending tasks (gray)
 - **▼** Expanded sections (pink)
 - **▶** Collapsed sections (gray)
-- **►** Current selection indicator
+- **Background highlighting** for current selection (no arrows)
 - **│** Text input cursor
 
 ## Examples
@@ -129,16 +131,31 @@ When creating or editing tasks:
 3. Type your task description
 4. Press `Enter` to save
 
+### Creating a New Section
+1. Navigate to where you want to add a section
+2. Press `h` followed by a number (1-6) for the section level
+   - `h1` creates `# Section Name`
+   - `h2` creates `## Section Name`
+   - etc.
+3. Type your section name
+4. Press `Enter` to save
+
 ### Organizing with Sections
 - Use markdown headers (`#`, `##`, `###`) to create sections
 - Navigate to a section header and press `Enter` to collapse/expand
 - Use `←`/`→` for quick collapse/expand
+- Collapsed sections hide all their sub-content
 
-### Editing Existing Tasks
-1. Navigate to the task you want to edit
+### Editing Existing Items
+1. Navigate to the task or section you want to edit
 2. Press `e`
 3. Modify the text
 4. Press `Enter` to save changes
+
+### Moving Items
+- Use `Alt+j` or `Alt+↓` to move items down
+- Use `Alt+k` or `Alt+↑` to move items up
+- Works for both tasks and sections
 
 ## File Structure
 
@@ -181,12 +198,30 @@ go run main.go demo.md
 4. Test thoroughly
 5. Submit a pull request
 
+## Advanced Features
+
+### Consistent Highlighting
+- Fixed-width background highlighting that adapts to indentation levels
+- Provides clear visual feedback without text jumping
+- Background-only highlighting (no distracting arrows)
+
+### Smart Section Management
+- Two-key sequences for precise section level creation
+- Hierarchical collapse/expand with proper nesting
+- Visual indicators for section state
+
+### Flexible Input System
+- Unified input mode for creating and editing both tasks and sections
+- Context-aware prompts showing what you're editing
+- Escape to cancel, Enter to save
+
 ## Known Limitations
 
 - Single-line tasks only (no multiline content)
 - No undo/redo functionality
 - No search or filtering
 - No configuration file support
+- No task due dates or priorities
 
 ## License
 
