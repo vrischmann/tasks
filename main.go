@@ -755,11 +755,9 @@ func (m Model) renderFooter(w io.Writer) {
 	} else {
 		leftTextPlain = "Saved"
 	}
+
 	rightText := "File: " + m.filename
-	padding := 80 - len(leftTextPlain) - len(rightText) - 4 // 4 for padding
-	if padding < 1 {
-		padding = 1
-	}
+	padding := max(maxWidth-len(leftTextPlain)-len(rightText), 1)
 
 	w.Write([]byte(strings.Repeat(" ", padding)))
 	w.Write([]byte(filename))
