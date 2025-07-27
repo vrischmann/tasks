@@ -162,53 +162,6 @@ func parseMarkdownFile(filename string) ([]Item, error) {
 	return items, nil
 }
 
-// renderBanner generates a stylized banner for the application
-func renderBanner() string {
-	// Block-style ASCII art for "Tasks" with left arrow pattern like Gemini CLI
-	lines := []string{
-		"███           ████████  █████   ███████ ██   ██ ███████",
-		"   ███           ██    ██   ██  ██      ██  ██  ██     ",
-		"     ███         ██    ███████  ███████ █████   ███████",
-		"   ███           ██    ██   ██       ██ ██  ██       ██",
-		"███              ██    ██   ██  ███████ ██   ██ ███████",
-	}
-
-	// Apply gradient coloring - each character gets a color based on position
-	var result strings.Builder
-
-	for _, line := range lines {
-		totalWidth := len(line)
-		for i, char := range line {
-			// Calculate gradient position (0.0 to 1.0)
-			position := float64(i) / float64(totalWidth-1)
-
-			// Choose color based on position
-			var style lipgloss.Style
-			switch {
-			case position < 0.16:
-				style = bannerGreen1
-			case position < 0.32:
-				style = bannerGreen2
-			case position < 0.48:
-				style = bannerGreen3
-			case position < 0.64:
-				style = bannerGreen4
-			case position < 0.80:
-				style = bannerGreen5
-			case position < 0.96:
-				style = bannerGreen6
-			default:
-				style = bannerWhite
-			}
-
-			result.WriteString(style.Render(string(char)))
-		}
-		result.WriteString("\n")
-	}
-
-	return result.String()
-}
-
 // Model represents the application state
 type Model struct {
 	items           []Item
@@ -603,6 +556,53 @@ func (m Model) saveToFile() error {
 	return nil
 }
 
+// renderBanner generates a stylized banner for the application
+func renderBanner() string {
+	// Block-style ASCII art for "Tasks" with left arrow pattern like Gemini CLI
+	lines := []string{
+		"███           ████████  █████   ███████ ██   ██ ███████",
+		"   ███           ██    ██   ██  ██      ██  ██  ██     ",
+		"     ███         ██    ███████  ███████ █████   ███████",
+		"   ███           ██    ██   ██       ██ ██  ██       ██",
+		"███              ██    ██   ██  ███████ ██   ██ ███████",
+	}
+
+	// Apply gradient coloring - each character gets a color based on position
+	var result strings.Builder
+
+	for _, line := range lines {
+		totalWidth := len(line)
+		for i, char := range line {
+			// Calculate gradient position (0.0 to 1.0)
+			position := float64(i) / float64(totalWidth-1)
+
+			// Choose color based on position
+			var style lipgloss.Style
+			switch {
+			case position < 0.16:
+				style = bannerGreen1
+			case position < 0.32:
+				style = bannerGreen2
+			case position < 0.48:
+				style = bannerGreen3
+			case position < 0.64:
+				style = bannerGreen4
+			case position < 0.80:
+				style = bannerGreen5
+			case position < 0.96:
+				style = bannerGreen6
+			default:
+				style = bannerWhite
+			}
+
+			result.WriteString(style.Render(string(char)))
+		}
+		result.WriteString("\n")
+	}
+
+	return result.String()
+}
+
 // View renders the current model state as a string
 func (m Model) View() string {
 	var s strings.Builder
@@ -763,10 +763,7 @@ func (m Model) View() string {
 		leftText = "Saved"
 	}
 	rightText := "File: " + m.filename
-	padding := 80 - len(leftText) - len(rightText) - 4 // 4 for padding
-	if padding < 1 {
-		padding = 1
-	}
+	padding := max(80-len(leftText)-len(rightText)-4, 1)
 
 	statusContent.WriteString(strings.Repeat(" ", padding))
 	statusContent.WriteString(filename)
