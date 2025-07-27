@@ -53,11 +53,15 @@ var (
 	taskPendingStyle = lipgloss.NewStyle().
 		Foreground(textColor)
 	
-	// Selection highlight
+	// Selection highlight (base style, width will be set dynamically)
 	selectedStyle = lipgloss.NewStyle().
 		Background(lipgloss.Color("#374151")).
-		Bold(true).
-		Padding(0, 1)
+		Bold(true)
+	
+	// Main container style
+	containerStyle = lipgloss.NewStyle().
+		Width(80).
+		Padding(0, 2)
 	
 	// Checkbox styles
 	checkedBoxStyle = lipgloss.NewStyle().
@@ -109,6 +113,8 @@ type Model struct {
 	inputMode   bool   // whether we're in input mode
 	inputText   string // text being typed
 	editingIndex int   // index of item being edited (-1 for new item)
+	newSectionLevel int // level of section being created (0 = task)
+	hMode       bool   // whether we're waiting for a number after 'h'
 }
 
 func parseMarkdownFile(filename string) ([]Item, error) {
@@ -170,6 +176,8 @@ func initialModel(filename string) Model {
 		inputMode:    false,
 		inputText:    "",
 		editingIndex: -1,
+		newSectionLevel: 0,
+		hMode:       false,
 	}
 	
 	m.updateVisibleItems()
@@ -251,32 +259,46 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				// Save the input
 				if m.editingIndex == -1 {
-					// Creating new task
+					// Creating new item
 					itemIndex := m.getCurrentItemIndex()
 					if itemIndex >= 0 {
-						var newTask Item
-						if m.items[itemIndex].Type == TypeSection {
-							newTask = Item{
-								Type:      TypeTask,
-								Level:     0,
+						var newItem Item
+						
+						if m.newSectionLevel > 0 {
+							// Create new section
+							newItem = Item{
+								Type:      TypeSection,
+								Level:     m.newSectionLevel,
 								Content:   m.inputText,
-								Checked:   new(bool),
+								Checked:   nil,
 								Children:  []Item{},
 								Collapsed: false,
 							}
 						} else {
-							newTask = Item{
-								Type:      TypeTask,
-								Level:     m.items[itemIndex].Level,
-								Content:   m.inputText,
-								Checked:   new(bool),
-								Children:  []Item{},
-								Collapsed: false,
+							// Create new task
+							if m.items[itemIndex].Type == TypeSection {
+								newItem = Item{
+									Type:      TypeTask,
+									Level:     0,
+									Content:   m.inputText,
+									Checked:   new(bool),
+									Children:  []Item{},
+									Collapsed: false,
+								}
+							} else {
+								newItem = Item{
+									Type:      TypeTask,
+									Level:     m.items[itemIndex].Level,
+									Content:   m.inputText,
+									Checked:   new(bool),
+									Children:  []Item{},
+									Collapsed: false,
+								}
 							}
 						}
 						
 						insertIndex := itemIndex + 1
-						m.items = append(m.items[:insertIndex], append([]Item{newTask}, m.items[insertIndex:]...)...)
+						m.items = append(m.items[:insertIndex], append([]Item{newItem}, m.items[insertIndex:]...)...)
 						m.updateVisibleItems()
 						
 						// Find new position in visible items
@@ -288,18 +310,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 				} else {
-					// Editing existing task
+					// Editing existing item
 					m.items[m.editingIndex].Content = m.inputText
 				}
 				// Exit input mode
 				m.inputMode = false
 				m.inputText = ""
 				m.editingIndex = -1
+				m.newSectionLevel = 0
 			case "esc":
 				// Cancel input
 				m.inputMode = false
 				m.inputText = ""
 				m.editingIndex = -1
+				m.newSectionLevel = 0
 			case "backspace":
 				if len(m.inputText) > 0 {
 					m.inputText = m.inputText[:len(m.inputText)-1]
@@ -309,6 +333,52 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(msg.String()) == 1 {
 					m.inputText += msg.String()
 				}
+			}
+			return m, nil
+		}
+		
+		// Handle h-mode (waiting for number after 'h')
+		if m.hMode {
+			switch msg.String() {
+			case "1":
+				m.inputMode = true
+				m.inputText = ""
+				m.editingIndex = -1
+				m.newSectionLevel = 1
+				m.hMode = false
+			case "2":
+				m.inputMode = true
+				m.inputText = ""
+				m.editingIndex = -1
+				m.newSectionLevel = 2
+				m.hMode = false
+			case "3":
+				m.inputMode = true
+				m.inputText = ""
+				m.editingIndex = -1
+				m.newSectionLevel = 3
+				m.hMode = false
+			case "4":
+				m.inputMode = true
+				m.inputText = ""
+				m.editingIndex = -1
+				m.newSectionLevel = 4
+				m.hMode = false
+			case "5":
+				m.inputMode = true
+				m.inputText = ""
+				m.editingIndex = -1
+				m.newSectionLevel = 5
+				m.hMode = false
+			case "6":
+				m.inputMode = true
+				m.inputText = ""
+				m.editingIndex = -1
+				m.newSectionLevel = 6
+				m.hMode = false
+			default:
+				// Cancel h-mode on any other key
+				m.hMode = false
 			}
 			return m, nil
 		}
@@ -354,15 +424,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.inputMode = true
 			m.inputText = ""
 			m.editingIndex = -1
+			m.newSectionLevel = 0
+		case "h":
+			// Enter h-mode (waiting for number)
+			m.hMode = true
 		case "e":
-			// Enter input mode for editing current task
+			// Enter input mode for editing current item (task or section)
 			itemIndex := m.getCurrentItemIndex()
-			if itemIndex >= 0 && m.items[itemIndex].Type == TypeTask {
+			if itemIndex >= 0 {
 				m.inputMode = true
 				m.inputText = m.items[itemIndex].Content
 				m.editingIndex = itemIndex
 			}
-		case "alt+j":
+		case "alt+j", "alt+down":
 			itemIndex := m.getCurrentItemIndex()
 			if itemIndex >= 0 && itemIndex < len(m.items)-1 {
 				m.items[itemIndex], m.items[itemIndex+1] = m.items[itemIndex+1], m.items[itemIndex]
@@ -371,7 +445,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cursor++
 				}
 			}
-		case "alt+k":
+		case "alt+k", "alt+up":
 			itemIndex := m.getCurrentItemIndex()
 			if itemIndex > 0 {
 				m.items[itemIndex], m.items[itemIndex-1] = m.items[itemIndex-1], m.items[itemIndex]
@@ -479,14 +553,18 @@ func (m Model) View() string {
 			
 			// Highlight current section
 			if m.cursor == visIdx {
-				// Use the section's original styling with subtle background
+				// Calculate fixed width accounting for indentation
+				indentWidth := len(indent) + 2 // indent + "  "
+				highlightWidth := 70 - indentWidth
+				highlightStyle := selectedStyle.Copy().Width(highlightWidth)
+				
 				var styledContent string
 				if item.Collapsed {
-					styledContent = selectedStyle.Render("► " + arrowCollapsedStyle.Render("▶") + " " + sectionCollapsedStyle.Render(item.Content))
+					styledContent = highlightStyle.Render(arrowCollapsedStyle.Render("▶") + " " + sectionCollapsedStyle.Render(item.Content))
 				} else {
-					styledContent = selectedStyle.Render("► " + arrowExpandedStyle.Render("▼") + " " + sectionStyle.Render(item.Content))
+					styledContent = highlightStyle.Render(arrowExpandedStyle.Render("▼") + " " + sectionStyle.Render(item.Content))
 				}
-				s.WriteString(fmt.Sprintf("%s%s\n", indent, styledContent))
+				s.WriteString(fmt.Sprintf("%s  %s\n", indent, styledContent))
 			} else {
 				s.WriteString(fmt.Sprintf("%s  %s\n", indent, sectionLine))
 			}
@@ -513,14 +591,18 @@ func (m Model) View() string {
 			
 			// Style the current task differently
 			if m.cursor == visIdx {
-				// Use the task's original styling with subtle background
+				// Calculate fixed width accounting for indentation
+				indentWidth := len(taskIndent) + 2 // taskIndent + "  "
+				highlightWidth := 70 - indentWidth
+				highlightStyle := selectedStyle.Copy().Width(highlightWidth)
+				
 				var styledContent string
 				if item.Checked != nil && *item.Checked {
-					styledContent = selectedStyle.Render("► " + checkedBoxStyle.Render("✓") + " " + taskCompletedStyle.Render(item.Content))
+					styledContent = highlightStyle.Render(checkedBoxStyle.Render("✓") + " " + taskCompletedStyle.Render(item.Content))
 				} else {
-					styledContent = selectedStyle.Render("► " + uncheckedBoxStyle.Render("○") + " " + taskPendingStyle.Render(item.Content))
+					styledContent = highlightStyle.Render(uncheckedBoxStyle.Render("○") + " " + taskPendingStyle.Render(item.Content))
 				}
-				s.WriteString(fmt.Sprintf("%s%s\n", taskIndent, styledContent))
+				s.WriteString(fmt.Sprintf("%s  %s\n", taskIndent, styledContent))
 			} else {
 				s.WriteString(fmt.Sprintf("%s  %s\n", taskIndent, taskLine))
 			}
@@ -532,9 +614,17 @@ func (m Model) View() string {
 		s.WriteString("\n")
 		var prompt string
 		if m.editingIndex == -1 {
-			prompt = inputPromptStyle.Render("New task:")
+			if m.newSectionLevel > 0 {
+				prompt = inputPromptStyle.Render(fmt.Sprintf("New h%d section:", m.newSectionLevel))
+			} else {
+				prompt = inputPromptStyle.Render("New task:")
+			}
 		} else {
-			prompt = inputPromptStyle.Render("Edit task:")
+			if m.items[m.editingIndex].Type == TypeSection {
+				prompt = inputPromptStyle.Render("Edit section:")
+			} else {
+				prompt = inputPromptStyle.Render("Edit task:")
+			}
 		}
 		// Create input content with cursor inside the border
 		inputContent := m.inputText + "│"
@@ -543,16 +633,22 @@ func (m Model) View() string {
 		s.WriteString(helpStyle.Render("Press Enter to save, Esc to cancel") + "\n")
 	} else {
 		// Help text with better styling
-		helpText := helpStyle.Render("\n" +
-			"Controls: " +
-			"j/k (navigate) • " +
-			"space (toggle) • " +
-			"enter/←/→ (collapse/expand) • " +
-			"n (new task) • " +
-			"e (edit task) • " +
-			"alt+j/k (move) • " +
-			"s (save) • " +
-			"q (quit)")
+		var helpText string
+		if m.hMode {
+			helpText = helpStyle.Render("\nPress 1-6 to create section level (h1-h6), any other key to cancel")
+		} else {
+			helpText = helpStyle.Render("\n" +
+				"Controls: " +
+				"j/k (navigate) • " +
+				"space (toggle) • " +
+				"enter/←/→ (collapse/expand) • " +
+				"n (new task) • " +
+				"h1-h6 (new section) • " +
+				"e (edit) • " +
+				"alt+j/k (move) • " +
+				"s (save) • " +
+				"q (quit)")
+		}
 		
 		s.WriteString(helpText + "\n")
 	}

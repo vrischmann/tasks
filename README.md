@@ -77,9 +77,19 @@ The application works with standard markdown task lists:
 |-----|--------|
 | `space` | Toggle task completion (✓/○) |
 | `n` | Create new task |
-| `e` | Edit current task |
+| `e` | Edit current task or section |
 | `Alt+j` | Move item down |
 | `Alt+k` | Move item up |
+
+### Section Management
+| Key | Action |
+|-----|--------|
+| `h1` | Create new h1 section (#) |
+| `h2` | Create new h2 section (##) |
+| `h3` | Create new h3 section (###) |
+| `h4` | Create new h4 section (####) |
+| `h5` | Create new h5 section (#####) |
+| `h6` | Create new h6 section (######) |
 
 ### Section Control
 | Key | Action |
