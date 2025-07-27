@@ -477,7 +477,7 @@ func (m Model) saveToFile() error {
 	for _, item := range m.items {
 		switch item.Type {
 		case TypeSection:
-			_, err := writer.WriteString(fmt.Sprintf("%s %s\n", strings.Repeat("#", item.Level), item.Content))
+			_, err := fmt.Fprintf(writer, "%s %s\n", strings.Repeat("#", item.Level), item.Content)
 			if err != nil {
 				return err
 			}
@@ -487,7 +487,7 @@ func (m Model) saveToFile() error {
 				checkbox = "[x]"
 			}
 			indent := strings.Repeat(" ", item.Level)
-			_, err := writer.WriteString(fmt.Sprintf("%s- %s %s\n", indent, checkbox, item.Content))
+			_, err := fmt.Fprintf(writer, "%s- %s %s\n", indent, checkbox, item.Content)
 			if err != nil {
 				return err
 			}
@@ -517,7 +517,7 @@ func (m Model) View() string {
 
 		// Update section stack by finding all sections up to this item
 		sectionStack = []*Item{}
-		for i := 0; i < itemIndex; i++ {
+		for i := range itemIndex {
 			if m.items[i].Type == TypeSection {
 				// Update stack based on level
 				for len(sectionStack) > 0 && sectionStack[len(sectionStack)-1].Level >= m.items[i].Level {
@@ -555,7 +555,7 @@ func (m Model) View() string {
 				// Calculate fixed width accounting for indentation
 				indentWidth := len(indent) + 2 // indent + "  "
 				highlightWidth := 70 - indentWidth
-				highlightStyle := selectedStyle.Copy().Width(highlightWidth)
+				highlightStyle := selectedStyle.Width(highlightWidth)
 
 				var styledContent string
 				if item.Collapsed {
@@ -593,7 +593,7 @@ func (m Model) View() string {
 				// Calculate fixed width accounting for indentation
 				indentWidth := len(taskIndent) + 2 // taskIndent + "  "
 				highlightWidth := 70 - indentWidth
-				highlightStyle := selectedStyle.Copy().Width(highlightWidth)
+				highlightStyle := selectedStyle.Width(highlightWidth)
 
 				var styledContent string
 				if item.Checked != nil && *item.Checked {
