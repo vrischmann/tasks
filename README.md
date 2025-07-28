@@ -118,15 +118,6 @@ When creating or editing tasks:
 | `Esc` | Cancel and exit input mode |
 | `Backspace` | Delete characters |
 
-## Visual Elements
-
-- **☒** Completed tasks (green, with strikethrough)
-- **☐** Pending tasks (gray)
-- **▼** Expanded sections (pink)
-- **▶** Collapsed sections (gray)
-- **Background highlighting** for current selection (no arrows)
-- **│** Text input cursor
-
 ## Examples
 
 ### Creating a New Task
