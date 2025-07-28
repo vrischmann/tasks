@@ -777,11 +777,9 @@ func (m Model) renderFooter(w io.Writer) {
 	modTime := m.fileModTime.Format("15:04:05") // 15=hour, 04=minute, 05=second (all zero-padded)
 
 	filenameText := footerFilenameStyle.Render(filename)
-	separator := footerSeparatorStyle.Render(" ╱ ")
 	timeText := footerTimeStyle.Render(modTime)
 
-	rightContent := filenameText + separator + timeText
-
+	rightContent := filenameText + timeText
 	// Calculate spacing to right-align the content
 	// Use lipgloss.Width to get actual display width of styled content
 	leftWidth := lipgloss.Width(leftText)
