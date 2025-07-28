@@ -651,12 +651,13 @@ func (m Model) renderVisibleItems(w io.Writer) {
 
 			sectionLine := fmt.Sprintf("%s %s", arrow, sectionText)
 
+			// Calculate width accounting for indentation
+			indentWidth := len(indent) + 2                 // indent + "  "
+			availableWidth := max(m.width-indentWidth, 10) // minimum 10 chars
+
 			// Highlight current section
 			if m.cursor == visIdx {
-				// Calculate fixed width accounting for indentation
-				indentWidth := len(indent) + 2                 // indent + "  "
-				highlightWidth := max(m.width-indentWidth, 10) // minimum 10 chars
-				highlightStyle := selectedStyle.Width(highlightWidth)
+				highlightStyle := selectedStyle.Width(availableWidth)
 
 				var styledContent string
 				if item.Collapsed {
@@ -666,7 +667,10 @@ func (m Model) renderVisibleItems(w io.Writer) {
 				}
 				fmt.Fprintf(w, "%s  %s\n", indent, styledContent)
 			} else {
-				fmt.Fprintf(w, "%s  %s\n", indent, sectionLine)
+				// Apply width constraint to non-highlighted items too
+				normalStyle := lipgloss.NewStyle().Width(availableWidth)
+				styledContent := normalStyle.Render(sectionLine)
+				fmt.Fprintf(w, "%s  %s\n", indent, styledContent)
 			}
 
 		case TypeTask:
@@ -689,12 +693,13 @@ func (m Model) renderVisibleItems(w io.Writer) {
 
 			taskLine := fmt.Sprintf("%s %s", checkbox, taskText)
 
+			// Calculate width accounting for indentation
+			indentWidth := len(taskIndent) + 2             // taskIndent + "  "
+			availableWidth := max(m.width-indentWidth, 10) // minimum 10 chars
+
 			// Style the current task differently
 			if m.cursor == visIdx {
-				// Calculate fixed width accounting for indentation
-				indentWidth := len(taskIndent) + 2             // taskIndent + "  "
-				highlightWidth := max(m.width-indentWidth, 10) // minimum 10 chars
-				highlightStyle := selectedStyle.Width(highlightWidth)
+				highlightStyle := selectedStyle.Width(availableWidth)
 
 				var styledContent string
 				if item.Checked != nil && *item.Checked {
@@ -704,7 +709,10 @@ func (m Model) renderVisibleItems(w io.Writer) {
 				}
 				fmt.Fprintf(w, "%s  %s\n", taskIndent, styledContent)
 			} else {
-				fmt.Fprintf(w, "%s  %s\n", taskIndent, taskLine)
+				// Apply width constraint to non-highlighted items too
+				normalStyle := lipgloss.NewStyle().Width(availableWidth)
+				styledContent := normalStyle.Render(taskLine)
+				fmt.Fprintf(w, "%s  %s\n", taskIndent, styledContent)
 			}
 		}
 	}
