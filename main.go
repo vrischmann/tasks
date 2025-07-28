@@ -514,7 +514,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update terminal dimensions
 		m.width = msg.Width
 		m.height = msg.Height
-		return m, nil
+		// Clear screen to prevent UI corruption from wrapping when resizing smaller
+		return m, tea.ClearScreen
 	case tea.KeyMsg:
 		// Handle input mode separately
 		if m.inputMode {
@@ -653,8 +654,8 @@ func (m Model) renderVisibleItems(w io.Writer) {
 			// Highlight current section
 			if m.cursor == visIdx {
 				// Calculate fixed width accounting for indentation
-				indentWidth := len(indent) + 2 // indent + "  "
-				highlightWidth := m.width - indentWidth
+				indentWidth := len(indent) + 2                 // indent + "  "
+				highlightWidth := max(m.width-indentWidth, 10) // minimum 10 chars
 				highlightStyle := selectedStyle.Width(highlightWidth)
 
 				var styledContent string
@@ -691,8 +692,8 @@ func (m Model) renderVisibleItems(w io.Writer) {
 			// Style the current task differently
 			if m.cursor == visIdx {
 				// Calculate fixed width accounting for indentation
-				indentWidth := len(taskIndent) + 2 // taskIndent + "  "
-				highlightWidth := m.width - indentWidth
+				indentWidth := len(taskIndent) + 2             // taskIndent + "  "
+				highlightWidth := max(m.width-indentWidth, 10) // minimum 10 chars
 				highlightStyle := selectedStyle.Width(highlightWidth)
 
 				var styledContent string
