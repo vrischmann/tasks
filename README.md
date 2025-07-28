@@ -21,7 +21,7 @@ A beautiful, interactive terminal application for managing tasks stored in markd
 
 ### Build from Source
 ```bash
-git clone <repository-url>
+git clone https://github.com/vrischmann/tasks
 cd tasks
 go build
 ```
@@ -161,8 +161,9 @@ When creating or editing tasks:
 
 ```
 tasks/
-├── main.go           # Main application code
+├── main.go           # Main application code (821 lines)
 ├── go.mod            # Go module definition
+├── Justfile          # Just build automation (optional)
 ├── demo.md           # Complex example file
 ├── test.md           # Simple example file
 ├── README.md         # This file
@@ -183,6 +184,17 @@ tasks/
 ```bash
 go mod download
 go build
+```
+
+### Using Just (alternative build tool)
+If you have [just](https://github.com/casey/just) installed:
+```bash
+just build          # Build the application
+just run            # Run with test.md
+just fmt             # Format code
+just check           # Run vet and staticcheck
+just watch-build     # Watch and rebuild on changes
+just watch-run       # Watch and run on changes
 ```
 
 ### Testing
