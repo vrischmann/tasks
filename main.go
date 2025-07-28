@@ -2,10 +2,12 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"regexp"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -804,13 +806,46 @@ func (m Model) View() string {
 	return s.String()
 }
 
+// getVersion returns version information using build info
+func getVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown"
+	}
+
+	version := info.Main.Version
+	if version == "(devel)" || version == "" {
+		// Try to get revision from build info
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				if len(setting.Value) >= 7 {
+					return "dev-" + setting.Value[:7]
+				}
+				return "dev-" + setting.Value
+			}
+		}
+		return "dev"
+	}
+
+	return version
+}
+
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: tasks <markdown-file>")
+	var showVersion = flag.Bool("version", false, "show version information")
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(getVersion())
+		return
+	}
+
+	args := flag.Args()
+	if len(args) < 1 {
+		fmt.Println("Usage: tasks [--version] <markdown-file>")
 		os.Exit(1)
 	}
 
-	filename := os.Args[1]
+	filename := args[0]
 
 	p := tea.NewProgram(initialModel(filename))
 
