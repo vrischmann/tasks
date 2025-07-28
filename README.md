@@ -5,7 +5,7 @@ A beautiful, interactive terminal application for managing tasks stored in markd
 ## Features
 
 - ✨ **Interactive Terminal UI** - Navigate with Vim-style keys
-- 📋 **Markdown Integration** - Works with standard markdown task lists  
+- 📋 **Markdown Integration** - Works with standard markdown task lists
 - 🌳 **Hierarchical Structure** - Support for nested sections and tasks
 - 🎨 **Beautiful Styling** - Modern colors, typography, and consistent highlighting
 - ⚡ **Live Editing** - Create and edit tasks and sections in-place
@@ -34,18 +34,18 @@ go build
 
 1. **Run with a markdown file:**
    ```bash
-   ./tasks demo.md
+   tasks demo.md
    ```
 
 2. **Try the included examples:**
    ```bash
-   ./tasks demo.md    # Complex hierarchical example
-   ./tasks test.md    # Simple test file
+   tasks demo.md    # Complex hierarchical example
+   tasks test.md    # Simple test file
    ```
 
 3. **Use with your own files:**
    ```bash
-   ./tasks path/to/your/todo.md
+   tasks path/to/your/todo.md
    ```
 
 ## Supported Markdown Format
