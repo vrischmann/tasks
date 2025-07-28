@@ -2,6 +2,8 @@
 
 A beautiful, interactive terminal application for managing tasks stored in markdown files. Built with Go, Bubble Tea, and lipgloss for a modern TUI experience.
 
+![Tasks UI](docs/screenshots/tasks.png)
+
 ## Features
 
 - ✨ **Interactive Terminal UI** - Navigate with Vim-style keys
