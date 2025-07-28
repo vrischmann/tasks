@@ -205,37 +205,6 @@ go run main.go demo.md
 4. Test thoroughly
 5. Submit a pull request
 
-## Advanced Features
-
-### Consistent Highlighting
-- Fixed-width background highlighting that adapts to indentation levels
-- Provides clear visual feedback without text jumping
-- Background-only highlighting (no distracting arrows)
-
-### Smart Section Management
-- Two-key sequences for precise section level creation
-- Hierarchical collapse/expand with proper nesting
-- Visual indicators for section state
-
-### Flexible Input System
-- Unified input mode for creating and editing both tasks and sections
-- Context-aware prompts showing what you're editing
-- Escape to cancel, Enter to save
-
-## Known Limitations
-
-- Single-line tasks only (no multiline content)
-- No undo/redo functionality
-- No search or filtering
-- No configuration file support
-- No task due dates or priorities
-
 ## License
 
 MIT License - see LICENSE file for details
-
-## Acknowledgments
-
-- Built with [Charm](https://charm.sh/) tools (Bubble Tea, lipgloss)
-- Inspired by terminal-based productivity tools
-- Thanks to the Go community for excellent tooling
