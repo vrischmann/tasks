@@ -21,10 +21,6 @@ const (
 	TypeTask                    // Task item
 )
 
-const (
-	maxWidth = 80
-)
-
 // Define color scheme and styles
 var (
 	// Colors
@@ -180,6 +176,8 @@ type Model struct {
 	hMode           bool      // whether we're waiting for a number after 'h'
 	dirty           bool      // whether the file has unsaved changes
 	fileModTime     time.Time // file modification time
+	width           int       // terminal width
+	height          int       // terminal height
 }
 
 // initialModel initializes the application model with data from a Markdown file
@@ -209,6 +207,8 @@ func initialModel(filename string) Model {
 		hMode:           false,
 		dirty:           false,
 		fileModTime:     modTime,
+		width:           80, // default width, will be updated by WindowSizeMsg
+		height:          24, // default height, will be updated by WindowSizeMsg
 	}
 
 	m.updateVisibleItems()
@@ -217,7 +217,7 @@ func initialModel(filename string) Model {
 
 // Init returns a command to initialize the model
 func (m Model) Init() tea.Cmd {
-	return nil
+	return tea.WindowSize()
 }
 
 // updateVisibleItems updates the list of visible items based on the current state
@@ -510,6 +510,11 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // Update handles user input and updates the model state
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		// Update terminal dimensions
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
 	case tea.KeyMsg:
 		// Handle input mode separately
 		if m.inputMode {
@@ -649,7 +654,7 @@ func (m Model) renderVisibleItems(w io.Writer) {
 			if m.cursor == visIdx {
 				// Calculate fixed width accounting for indentation
 				indentWidth := len(indent) + 2 // indent + "  "
-				highlightWidth := maxWidth - indentWidth
+				highlightWidth := m.width - indentWidth
 				highlightStyle := selectedStyle.Width(highlightWidth)
 
 				var styledContent string
@@ -687,7 +692,7 @@ func (m Model) renderVisibleItems(w io.Writer) {
 			if m.cursor == visIdx {
 				// Calculate fixed width accounting for indentation
 				indentWidth := len(taskIndent) + 2 // taskIndent + "  "
-				highlightWidth := maxWidth - indentWidth
+				highlightWidth := m.width - indentWidth
 				highlightStyle := selectedStyle.Width(highlightWidth)
 
 				var styledContent string
@@ -757,7 +762,7 @@ func (m Model) renderFooter(w io.Writer) {
 	}
 
 	rightText := "File: " + m.filename
-	padding := max(maxWidth-len(leftTextPlain)-len(rightText), 1)
+	padding := max(m.width-len(leftTextPlain)-len(rightText), 1)
 
 	io.WriteString(w, strings.Repeat(" ", padding))
 	io.WriteString(w, filename)
