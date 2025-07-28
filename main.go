@@ -41,21 +41,20 @@ var (
 			Foreground(mutedColor).
 			Italic(true)
 
-	// Footer right side styles with consistent background
+	// Footer right side styles with distinct gradient backgrounds
 	footerFilenameStyle = lipgloss.NewStyle().
 				Background(lipgloss.Color("#065F46")).
-				Foreground(lipgloss.Color("#059669")).
+				Foreground(textColor).
 				Padding(0, 1)
 
 	footerTimeStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#065F46")).
-			Foreground(lipgloss.Color("#10b981")).
+			Background(lipgloss.Color("#059669")).
+			Foreground(textColor).
 			Padding(0, 1)
 
 	footerSeparatorStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("#065F46")).
-				Foreground(mutedColor)
-	// Section styles
+				Background(lipgloss.Color("#10b981")).
+				Foreground(textColor) // Section styles
 	sectionStyle = lipgloss.NewStyle().
 			Foreground(accentColor).
 			Bold(true)
@@ -71,7 +70,6 @@ var (
 
 	taskPendingStyle = lipgloss.NewStyle().
 				Foreground(textColor)
-
 	// Selection highlight (base style, width will be set dynamically)
 	selectedStyle = lipgloss.NewStyle().
 			Background(lipgloss.Color("#374151")).
@@ -785,15 +783,10 @@ func (m Model) renderFooter(w io.Writer) {
 	rightContent := filenameText + separator + timeText
 
 	// Calculate spacing to right-align the content
-	leftTextPlain := ""
-	if m.dirty {
-		leftTextPlain = "● Modified"
-	} else {
-		leftTextPlain = "Saved"
-	}
-
-	rightTextPlain := filename + " ╱ " + modTime
-	padding := max(m.width-len(leftTextPlain)-len(rightTextPlain), 1)
+	// Use lipgloss.Width to get actual display width of styled content
+	leftWidth := lipgloss.Width(leftText)
+	rightWidth := lipgloss.Width(rightContent)
+	padding := max(m.width-leftWidth-rightWidth, 1)
 
 	io.WriteString(w, strings.Repeat(" ", padding))
 	io.WriteString(w, rightContent)
