@@ -4,15 +4,14 @@ A beautiful, interactive terminal application for managing tasks stored in markd
 
 ## Features
 
-✨ **Interactive Terminal UI** - Navigate with Vim-style keys
-📋 **Markdown Integration** - Works with standard markdown task lists
-🌳 **Hierarchical Structure** - Support for nested sections and tasks
-🎨 **Beautiful Styling** - Modern colors, typography, and consistent highlighting
-⚡ **Live Editing** - Create and edit tasks and sections in-place
-💾 **Auto-save** - Save changes back to your markdown files
-🔄 **Task Management** - Toggle completion, move tasks, collapse sections
-🎯 **Section Creation** - Quick section creation with h1-h6 shortcuts
-✨ **Smart Highlighting** - Fixed-width highlighting that adapts to indentation
+- ✨ **Interactive Terminal UI** - Navigate with Vim-style keys
+- 📋 **Markdown Integration** - Works with standard markdown task lists  
+- 🌳 **Hierarchical Structure** - Support for nested sections and tasks
+- 🎨 **Beautiful Styling** - Modern colors, typography, and consistent highlighting
+- ⚡ **Live Editing** - Create and edit tasks and sections in-place
+- 🔄 **Task Management** - Toggle completion, move tasks, collapse sections
+- 🎯 **Section Creation** - Quick section creation with h+1 to h+6 shortcuts
+- ✨ **Smart Highlighting** - Fixed-width highlighting that adapts to indentation
 
 ## Installation
 
@@ -86,12 +85,12 @@ The application works with standard markdown task lists:
 ### Section Management
 | Key | Action |
 |-----|--------|
-| `h1` | Create new h1 section (#) |
-| `h2` | Create new h2 section (##) |
-| `h3` | Create new h3 section (###) |
-| `h4` | Create new h4 section (####) |
-| `h5` | Create new h5 section (#####) |
-| `h6` | Create new h6 section (######) |
+| `h+1` | Create new h1 section (#) |
+| `h+2` | Create new h2 section (##) |
+| `h+3` | Create new h3 section (###) |
+| `h+4` | Create new h4 section (####) |
+| `h+5` | Create new h5 section (#####) |
+| `h+6` | Create new h6 section (######) |
 
 ### Section Control
 | Key | Action |
@@ -134,8 +133,8 @@ When creating or editing tasks:
 ### Creating a New Section
 1. Navigate to where you want to add a section
 2. Press `h` followed by a number (1-6) for the section level
-   - `h1` creates `# Section Name`
-   - `h2` creates `## Section Name`
+   - `h+1` creates `# Section Name`
+   - `h+2` creates `## Section Name`
    - etc.
 3. Type your section name
 4. Press `Enter` to save
