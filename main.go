@@ -41,6 +41,20 @@ var (
 			Foreground(mutedColor).
 			Italic(true)
 
+	// Footer right side styles with consistent background
+	footerFilenameStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#065F46")).
+				Foreground(lipgloss.Color("#059669")).
+				Padding(0, 1)
+
+	footerTimeStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("#065F46")).
+			Foreground(lipgloss.Color("#10b981")).
+			Padding(0, 1)
+
+	footerSeparatorStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#065F46")).
+				Foreground(mutedColor)
 	// Section styles
 	sectionStyle = lipgloss.NewStyle().
 			Foreground(accentColor).
@@ -70,7 +84,6 @@ var (
 
 	uncheckedBoxStyle = lipgloss.NewStyle().
 				Foreground(mutedColor)
-
 	// Arrow styles
 	arrowExpandedStyle = lipgloss.NewStyle().
 				Foreground(accentColor).
@@ -761,10 +774,17 @@ func (m Model) renderFooter(w io.Writer) {
 	}
 	io.WriteString(w, leftText)
 
-	// Right side: filename
-	filename := lastUpdateStyle.Render("File: " + m.filename)
+	// Right side: filename and modification time
+	filename := m.filename
+	modTime := m.fileModTime.Format("15:04:05") // 15=hour, 04=minute, 05=second (all zero-padded)
 
-	// Calculate spacing to right-align the filename
+	filenameText := footerFilenameStyle.Render(filename)
+	separator := footerSeparatorStyle.Render(" ╱ ")
+	timeText := footerTimeStyle.Render(modTime)
+
+	rightContent := filenameText + separator + timeText
+
+	// Calculate spacing to right-align the content
 	leftTextPlain := ""
 	if m.dirty {
 		leftTextPlain = "● Modified"
@@ -772,11 +792,11 @@ func (m Model) renderFooter(w io.Writer) {
 		leftTextPlain = "Saved"
 	}
 
-	rightText := "File: " + m.filename
-	padding := max(m.width-len(leftTextPlain)-len(rightText), 1)
+	rightTextPlain := filename + " ╱ " + modTime
+	padding := max(m.width-len(leftTextPlain)-len(rightTextPlain), 1)
 
 	io.WriteString(w, strings.Repeat(" ", padding))
-	io.WriteString(w, filename)
+	io.WriteString(w, rightContent)
 }
 
 // View renders the current model state as a string
