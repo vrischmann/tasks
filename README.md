@@ -156,13 +156,16 @@ When creating or editing tasks:
 
 ```
 tasks/
-├── main.go           # Main application code (821 lines)
+├── main.go           # Main application code (867 lines)
 ├── go.mod            # Go module definition
+├── go.sum            # Go module checksums
 ├── Justfile          # Just build automation (optional)
 ├── demo.md           # Complex example file
 ├── test.md           # Simple example file
 ├── README.md         # This file
-└── CLAUDE.md         # Developer documentation
+├── CLAUDE.md         # Developer documentation
+├── AGENTS.md         # Agent configuration
+└── LICENSE           # MIT License
 ```
 
 ## Development
