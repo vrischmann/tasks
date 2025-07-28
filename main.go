@@ -52,13 +52,6 @@ var (
 			Foreground(textColor).
 			Padding(0, 1)
 
-	footerSeparatorStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("#10b981")).
-				Foreground(textColor) // Section styles
-	sectionStyle = lipgloss.NewStyle().
-			Foreground(accentColor).
-			Bold(true)
-
 	sectionCollapsedStyle = lipgloss.NewStyle().
 				Foreground(mutedColor).
 				Bold(true)
@@ -70,6 +63,11 @@ var (
 
 	taskPendingStyle = lipgloss.NewStyle().
 				Foreground(textColor)
+
+	sectionStyle = lipgloss.NewStyle().
+			Foreground(accentColor).
+			Bold(true)
+
 	// Selection highlight (base style, width will be set dynamically)
 	selectedStyle = lipgloss.NewStyle().
 			Background(lipgloss.Color("#374151")).
