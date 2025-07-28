@@ -18,6 +18,11 @@ A beautiful, interactive terminal application for managing tasks stored in markd
 ### Prerequisites
 - Go 1.24.5 or later
 
+### Install with Go
+```bash
+go install dev.rischmann.fr/tasks@latest
+```
+
 ### Build from Source
 ```bash
 git clone https://github.com/vrischmann/tasks
