@@ -61,17 +61,3 @@ release:
   name_template: "{{ .ProjectName }} v{{ .Version }}"
   draft: false
   prerelease: auto
-
-brews:
-  - name: tasks
-    repository:
-      owner: vrischmann
-      name: homebrew-tap
-      branch: main
-    homepage: "https://github.com/vrischmann/tasks"
-    description: "Terminal-based markdown task manager"
-    license: "MIT"
-    install: |
-      bin.install "tasks"
-    test: |
-      system "#{bin}/tasks", "--version"
