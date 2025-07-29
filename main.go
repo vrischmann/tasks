@@ -194,10 +194,10 @@ type Model struct {
 }
 
 // initialModel initializes the application model with data from a Markdown file
-func initialModel(filename string) Model {
+func initialModel(filename string) (Model, error) {
 	items, err := parseMarkdownFile(filename)
 	if err != nil {
-		items = []Item{}
+		return Model{}, fmt.Errorf("unable to parse file %q, err: %w", filename, err)
 	}
 
 	// Get file modification time
@@ -225,7 +225,8 @@ func initialModel(filename string) Model {
 	}
 
 	m.updateVisibleItems()
-	return m
+
+	return m, nil
 }
 
 // Init returns a command to initialize the model
@@ -931,7 +932,13 @@ func main() {
 
 	filename := args[0]
 
-	p := tea.NewProgram(initialModel(filename))
+	model, err := initialModel(filename)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	p := tea.NewProgram(model)
 
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error: %v\n", err)

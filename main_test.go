@@ -32,13 +32,22 @@ func createTestFile(t *testing.T, content string) string {
 	return tmpFile.Name()
 }
 
+func mustInitialModel(t *testing.T, filename string) Model {
+	t.Helper()
+
+	model, err := initialModel(filename)
+	require.NoError(t, err)
+
+	return model
+}
+
 func TestInitialModel_SingleTask(t *testing.T) {
 	// Create a test file with a single task
 	content := "- [ ] Test task\n"
 	filename := createTestFile(t, content)
 
 	// Initialize the model
-	model := initialModel(filename)
+	model := mustInitialModel(t, filename)
 
 	// Verify initial state
 	require.Len(t, model.items, 1)
@@ -57,7 +66,7 @@ func TestTaskToggle(t *testing.T) {
 	// Create test model
 	tm := teatest.NewTestModel(
 		t,
-		initialModel(filename),
+		mustInitialModel(t, filename),
 		teatest.WithInitialTermSize(80, 24),
 	)
 
@@ -91,7 +100,7 @@ func TestNavigationSingleTask(t *testing.T) {
 	// Create test model
 	tm := teatest.NewTestModel(
 		t,
-		initialModel(filename),
+		mustInitialModel(t, filename),
 		teatest.WithInitialTermSize(80, 24),
 	)
 
@@ -127,7 +136,7 @@ func TestEmptyFile(t *testing.T) {
 	filename := createTestFile(t, "")
 
 	// Initialize the model
-	model := initialModel(filename)
+	model := mustInitialModel(t, filename)
 
 	// Verify initial state for empty file
 	require.Empty(t, model.items, "Expected 0 items for empty file")
@@ -175,7 +184,7 @@ func TestMultipleTaskNavigation(t *testing.T) {
 	// Create test model
 	tm := teatest.NewTestModel(
 		t,
-		initialModel(filename),
+		mustInitialModel(t, filename),
 		teatest.WithInitialTermSize(80, 24),
 	)
 
@@ -218,7 +227,7 @@ func TestTaskToggleMultiple(t *testing.T) {
 	// Create test model
 	tm := teatest.NewTestModel(
 		t,
-		initialModel(filename),
+		mustInitialModel(t, filename),
 		teatest.WithInitialTermSize(80, 24),
 	)
 
@@ -257,7 +266,7 @@ func TestBoundaryNavigation(t *testing.T) {
 	// Create test model
 	tm := teatest.NewTestModel(
 		t,
-		initialModel(filename),
+		mustInitialModel(t, filename),
 		teatest.WithInitialTermSize(80, 24),
 	)
 
