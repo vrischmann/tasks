@@ -278,7 +278,11 @@ func (m *Model) updateVisibleItems() {
 		}
 	}
 
-	// Ensure cursor is within bounds
+	m.adjustCursor()
+}
+
+// adjustCursor ensures the cursor is within valid bounds
+func (m *Model) adjustCursor() {
 	if m.cursor >= len(m.visibleItems) {
 		m.cursor = len(m.visibleItems) - 1
 	}
@@ -547,13 +551,7 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.deleteItem(itemIndex)
 			m.updateVisibleItems()
 			m.dirty = true
-			// Adjust cursor if needed
-			if m.cursor >= len(m.visibleItems) {
-				m.cursor = len(m.visibleItems) - 1
-			}
-			if m.cursor < 0 && len(m.visibleItems) > 0 {
-				m.cursor = 0
-			}
+			m.adjustCursor()
 		}
 	case "s":
 		err := m.saveToFile()
