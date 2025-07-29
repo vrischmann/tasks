@@ -352,79 +352,90 @@ func (m Model) getCurrentItemIndex() int {
 
 // handleInputMode processes key messages while in input mode (editing or creating items)
 func (m Model) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	exitInputMode := func() {
+		m.inputMode = false
+		m.inputText = ""
+		m.editingIndex = -1
+		m.newSectionLevel = 0
+	}
+
+	// Define closure for saving input
+	saveInput := func() {
+		switch {
+		case m.editingIndex >= 0:
+			// Editing existing item
+			m.items[m.editingIndex].Content = m.inputText
+		default:
+			// Creating new item
+			var newItem Item
+
+			if m.newSectionLevel > 0 {
+				// Create new section
+				newItem = Item{
+					Type:      TypeSection,
+					Level:     m.newSectionLevel,
+					Content:   m.inputText,
+					Checked:   nil,
+					Children:  []Item{},
+					Collapsed: false,
+				}
+			} else {
+				// Create new task
+				newItem = Item{
+					Type:      TypeTask,
+					Level:     0,
+					Content:   m.inputText,
+					Checked:   new(bool),
+					Children:  []Item{},
+					Collapsed: false,
+				}
+			}
+
+			// Handle empty file case
+			if len(m.items) == 0 {
+				// Add as first item
+				m.items = append(m.items, newItem)
+				m.updateVisibleItems()
+				m.cursor = 0
+			} else {
+				// Insert after current item
+				itemIndex := m.getCurrentItemIndex()
+				if itemIndex >= 0 {
+					// Adjust task level based on context
+					if m.newSectionLevel == 0 && m.items[itemIndex].Type == TypeSection {
+						// Task after section should be at level 0
+						newItem.Level = 0
+					} else if m.newSectionLevel == 0 && m.items[itemIndex].Type == TypeTask {
+						// Task after task should match its level
+						newItem.Level = m.items[itemIndex].Level
+					}
+
+					insertIndex := itemIndex + 1
+					m.items = append(m.items[:insertIndex], append([]Item{newItem}, m.items[insertIndex:]...)...)
+					m.updateVisibleItems()
+
+					// Find new position in visible items
+					for i, idx := range m.visibleItems {
+						if idx == insertIndex {
+							m.cursor = i
+							break
+						}
+					}
+				}
+			}
+		}
+
+		m.dirty = true
+		exitInputMode()
+	}
+
 	switch msg.String() {
 	case "ctrl+c":
 		return m, tea.Quit
 	case "enter":
-		// Save the input
-		if m.editingIndex == -1 {
-			// Creating new item
-			itemIndex := m.getCurrentItemIndex()
-			if itemIndex >= 0 {
-				var newItem Item
-
-				if m.newSectionLevel > 0 {
-					// Create new section
-					newItem = Item{
-						Type:      TypeSection,
-						Level:     m.newSectionLevel,
-						Content:   m.inputText,
-						Checked:   nil,
-						Children:  []Item{},
-						Collapsed: false,
-					}
-				} else {
-					// Create new task
-					if m.items[itemIndex].Type == TypeSection {
-						newItem = Item{
-							Type:      TypeTask,
-							Level:     0,
-							Content:   m.inputText,
-							Checked:   new(bool),
-							Children:  []Item{},
-							Collapsed: false,
-						}
-					} else {
-						newItem = Item{
-							Type:      TypeTask,
-							Level:     m.items[itemIndex].Level,
-							Content:   m.inputText,
-							Checked:   new(bool),
-							Children:  []Item{},
-							Collapsed: false,
-						}
-					}
-				}
-
-				insertIndex := itemIndex + 1
-				m.items = append(m.items[:insertIndex], append([]Item{newItem}, m.items[insertIndex:]...)...)
-				m.updateVisibleItems()
-				m.dirty = true
-
-				// Find new position in visible items
-				for i, idx := range m.visibleItems {
-					if idx == insertIndex {
-						m.cursor = i
-						break
-					}
-				}
-			}
-		} else {
-			// Editing existing item
-			m.items[m.editingIndex].Content = m.inputText
-			m.dirty = true
-		}
-		// Exit input mode
-		m.inputMode = false
-		m.inputText = ""
-		m.editingIndex = -1
-		m.newSectionLevel = 0
+		saveInput()
 	case "esc":
-		// Cancel input
-		m.inputMode = false
-		m.inputText = ""
-		m.editingIndex = -1
-		m.newSectionLevel = 0
+		exitInputMode()
 	case "backspace":
 		if len(m.inputText) > 0 {
 			m.inputText = m.inputText[:len(m.inputText)-1]
@@ -879,11 +890,10 @@ func (m Model) View() string {
 	if len(m.items) == 0 {
 		noTasksMsg := taskPendingStyle.Render("No tasks found. Press 'q' to quit.")
 		s.WriteString(noTasksMsg + "\n")
-		return s.String()
+	} else {
+		// Render visible items
+		m.renderVisibleItems(&s)
 	}
-
-	// Render visible items
-	m.renderVisibleItems(&s)
 
 	// Render input if necessary
 	m.renderInput(&s)
