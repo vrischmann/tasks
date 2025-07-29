@@ -324,6 +324,24 @@ func (m *Model) deleteItem(itemIndex int) {
 	}
 }
 
+// collapseAll sets all sections to collapsed state
+func (m *Model) collapseAll() {
+	for i := range m.items {
+		if m.items[i].Type == TypeSection {
+			m.items[i].Collapsed = true
+		}
+	}
+}
+
+// expandAll sets all sections to expanded state
+func (m *Model) expandAll() {
+	for i := range m.items {
+		if m.items[i].Type == TypeSection {
+			m.items[i].Collapsed = false
+		}
+	}
+}
+
 // getCurrentItemIndex returns the index of the currently selected item in the visible items list
 func (m Model) getCurrentItemIndex() int {
 	if len(m.visibleItems) == 0 {
@@ -560,6 +578,14 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if fileInfo, err := os.Stat(m.filename); err == nil {
 			m.fileModTime = fileInfo.ModTime()
 		}
+	case "-":
+		// Collapse all sections
+		m.collapseAll()
+		m.updateVisibleItems()
+	case "+":
+		// Expand all sections
+		m.expandAll()
+		m.updateVisibleItems()
 	}
 
 	return m, nil
