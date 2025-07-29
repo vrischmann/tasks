@@ -628,9 +628,16 @@ func (m Model) saveToFile() error {
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	for _, item := range m.items {
+	for i, item := range m.items {
 		switch item.Type {
 		case TypeSection:
+			// Add blank line before section (except for first item)
+			if i > 0 {
+				_, err := fmt.Fprintf(writer, "\n")
+				if err != nil {
+					return err
+				}
+			}
 			_, err := fmt.Fprintf(writer, "%s %s\n", strings.Repeat("#", item.Level), item.Content)
 			if err != nil {
 				return err
