@@ -283,11 +283,8 @@ func (m *Model) updateVisibleItems() {
 
 // adjustCursor ensures the cursor is within valid bounds
 func (m *Model) adjustCursor() {
-	if m.cursor >= len(m.visibleItems) {
+	if m.cursor >= len(m.visibleItems) && len(m.visibleItems) > 0 {
 		m.cursor = len(m.visibleItems) - 1
-	}
-	if m.cursor < 0 && len(m.visibleItems) > 0 {
-		m.cursor = 0
 	}
 }
 
@@ -329,10 +326,10 @@ func (m *Model) deleteItem(itemIndex int) {
 
 // getCurrentItemIndex returns the index of the currently selected item in the visible items list
 func (m Model) getCurrentItemIndex() int {
-	if m.cursor >= 0 && m.cursor < len(m.visibleItems) {
-		return m.visibleItems[m.cursor]
+	if len(m.visibleItems) == 0 {
+		return -1
 	}
-	return -1
+	return m.visibleItems[m.cursor]
 }
 
 // handleInputMode processes key messages while in input mode (editing or creating items)
