@@ -286,6 +286,40 @@ func (m *Model) updateVisibleItems() {
 	}
 }
 
+// deleteItem deletes an item and all its children if it's a section
+func (m *Model) deleteItem(itemIndex int) {
+	if itemIndex < 0 || itemIndex >= len(m.items) {
+		return
+	}
+
+	item := m.items[itemIndex]
+	
+	if item.Type == TypeSection {
+		// Delete section and all items under it
+		sectionLevel := item.Level
+		deleteCount := 1 // Start with the section itself
+		
+		// Count items that should be deleted (all items under this section)
+		for i := itemIndex + 1; i < len(m.items); i++ {
+			nextItem := m.items[i]
+			
+			// If we encounter another section at the same or higher level, stop
+			if nextItem.Type == TypeSection && nextItem.Level <= sectionLevel {
+				break
+			}
+			
+			// This item is under the section (either a subsection or task)
+			deleteCount++
+		}
+		
+		// Remove all items from itemIndex to itemIndex+deleteCount-1
+		m.items = append(m.items[:itemIndex], m.items[itemIndex+deleteCount:]...)
+	} else {
+		// Delete single task
+		m.items = append(m.items[:itemIndex], m.items[itemIndex+1:]...)
+	}
+}
+
 // getCurrentItemIndex returns the index of the currently selected item in the visible items list
 func (m Model) getCurrentItemIndex() int {
 	if m.cursor >= 0 && m.cursor < len(m.visibleItems) {
@@ -501,6 +535,21 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.dirty = true
 			if m.cursor > 0 {
 				m.cursor--
+			}
+		}
+	case "d":
+		// Delete current item
+		itemIndex := m.getCurrentItemIndex()
+		if itemIndex >= 0 {
+			m.deleteItem(itemIndex)
+			m.updateVisibleItems()
+			m.dirty = true
+			// Adjust cursor if needed
+			if m.cursor >= len(m.visibleItems) {
+				m.cursor = len(m.visibleItems) - 1
+			}
+			if m.cursor < 0 && len(m.visibleItems) > 0 {
+				m.cursor = 0
 			}
 		}
 	case "s":
