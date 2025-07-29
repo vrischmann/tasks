@@ -451,43 +451,27 @@ func (m Model) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handleHMode processes key messages while in h-mode (waiting for section level input)
 func (m Model) handleHMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	handle := func(level int) {
+		m.inputMode = true
+		m.inputText = ""
+		m.editingIndex = -1
+		m.newSectionLevel = level
+		m.hMode = false
+	}
+
 	switch msg.String() {
 	case "1":
-		m.inputMode = true
-		m.inputText = ""
-		m.editingIndex = -1
-		m.newSectionLevel = 1
-		m.hMode = false
+		handle(1)
 	case "2":
-		m.inputMode = true
-		m.inputText = ""
-		m.editingIndex = -1
-		m.newSectionLevel = 2
-		m.hMode = false
+		handle(2)
 	case "3":
-		m.inputMode = true
-		m.inputText = ""
-		m.editingIndex = -1
-		m.newSectionLevel = 3
-		m.hMode = false
+		handle(3)
 	case "4":
-		m.inputMode = true
-		m.inputText = ""
-		m.editingIndex = -1
-		m.newSectionLevel = 4
-		m.hMode = false
+		handle(4)
 	case "5":
-		m.inputMode = true
-		m.inputText = ""
-		m.editingIndex = -1
-		m.newSectionLevel = 5
-		m.hMode = false
+		handle(5)
 	case "6":
-		m.inputMode = true
-		m.inputText = ""
-		m.editingIndex = -1
-		m.newSectionLevel = 6
-		m.hMode = false
+		handle(6)
 	default:
 		// Cancel h-mode on any other key
 		m.hMode = false
