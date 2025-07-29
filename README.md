@@ -13,9 +13,12 @@ Yes, this has been vibe coded.
 - 🌳 **Hierarchical Structure** - Support for nested sections and tasks
 - 🎨 **Beautiful Styling** - Modern colors, typography, and consistent highlighting
 - ⚡ **Live Editing** - Create and edit tasks and sections in-place
-- 🔄 **Task Management** - Toggle completion, move tasks, collapse sections
+- 🔄 **Task Management** - Toggle completion, move tasks, delete items, collapse sections
 - 🎯 **Section Creation** - Quick section creation with h+1 to h+6 shortcuts
 - ✨ **Smart Highlighting** - Fixed-width highlighting that adapts to indentation
+- 🗂️ **Global Section Control** - Collapse/expand all sections at once
+- 🌍 **Unicode Support** - Full support for international characters and emojis
+- 📁 **Empty File Handling** - Create tasks and sections in empty markdown files
 
 ## Installation
 
@@ -88,6 +91,7 @@ The application works with standard markdown task lists:
 | `space` | Toggle task completion (☒/☐) |
 | `n` | Create new task |
 | `e` | Edit current task or section |
+| `d` | Delete current item (tasks or sections with all contents) |
 | `Alt+j` / `Alt+↓` | Move item down |
 | `Alt+k` / `Alt+↑` | Move item up |
 
@@ -107,6 +111,8 @@ The application works with standard markdown task lists:
 | `enter` | Toggle section expand/collapse |
 | `←` | Collapse current section |
 | `→` | Expand current section |
+| `-` | Collapse all sections |
+| `+` | Expand all sections |
 
 ### File Operations
 | Key | Action |
@@ -114,13 +120,15 @@ The application works with standard markdown task lists:
 | `s` | Save changes to file |
 
 ### Input Mode
-When creating or editing tasks:
+When creating or editing tasks/sections:
 
 | Key | Action |
 |-----|--------|
 | `Enter` | Save and exit input mode |
-| `Esc` | Cancel and exit input mode |
+| `Esc` / `Ctrl+C` | Cancel and exit input mode |
 | `Backspace` | Delete characters |
+
+**Note**: Full Unicode support - type accented characters (é, ñ, etc.) and emojis directly!
 
 ## Examples
 
@@ -155,6 +163,18 @@ When creating or editing tasks:
 - Use `Alt+j` or `Alt+↓` to move items down
 - Use `Alt+k` or `Alt+↑` to move items up
 - Works for both tasks and sections
+
+### Deleting Items
+1. Navigate to the task or section you want to delete
+2. Press `d`
+3. The item is immediately deleted (no confirmation)
+   - For tasks: Only the task is deleted
+   - For sections: The section and ALL its contents (subsections, tasks) are deleted
+
+### Global Section Management
+- Press `-` to collapse all sections at once (overview mode)
+- Press `+` to expand all sections at once (detailed mode)
+- Useful for quickly switching between high-level and detailed views
 
 ## File Structure
 
