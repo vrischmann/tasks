@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"time"
 
@@ -293,30 +294,32 @@ func (m *Model) deleteItem(itemIndex int) {
 	}
 
 	item := m.items[itemIndex]
-	
-	if item.Type == TypeSection {
+
+	switch item.Type {
+	case TypeSection:
 		// Delete section and all items under it
 		sectionLevel := item.Level
 		deleteCount := 1 // Start with the section itself
-		
+
 		// Count items that should be deleted (all items under this section)
 		for i := itemIndex + 1; i < len(m.items); i++ {
 			nextItem := m.items[i]
-			
+
 			// If we encounter another section at the same or higher level, stop
 			if nextItem.Type == TypeSection && nextItem.Level <= sectionLevel {
 				break
 			}
-			
+
 			// This item is under the section (either a subsection or task)
 			deleteCount++
 		}
-		
+
 		// Remove all items from itemIndex to itemIndex+deleteCount-1
-		m.items = append(m.items[:itemIndex], m.items[itemIndex+deleteCount:]...)
-	} else {
+		m.items = slices.Delete(m.items, itemIndex, itemIndex+deleteCount)
+
+	case TypeTask:
 		// Delete single task
-		m.items = append(m.items[:itemIndex], m.items[itemIndex+1:]...)
+		m.items = slices.Delete(m.items, itemIndex, itemIndex+1)
 	}
 }
 
