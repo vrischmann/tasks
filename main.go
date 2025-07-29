@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -442,7 +443,7 @@ func (m Model) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	default:
 		// Add character to input
-		if len(msg.String()) == 1 {
+		if utf8.RuneCountInString(msg.String()) == 1 {
 			m.inputText += msg.String()
 		}
 	}
