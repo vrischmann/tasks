@@ -953,47 +953,55 @@ func (m Model) renderHelpModal(w io.Writer) {
 	// Help content
 	content := headerStyle.Render("📖 KEYBOARD SHORTCUTS") + "\n\n"
 
+	// Helper function to format key-description pairs with consistent alignment
+	formatKeyDesc := func(keys, desc string) string {
+		styledKeys := keyStyle.Render(keys)
+		// Use a fixed width of 20 characters for the key column
+		keyColumn := lipgloss.NewStyle().Width(20).Render(styledKeys)
+		return fmt.Sprintf("  %s %s", keyColumn, descStyle.Render(desc))
+	}
+
 	// Navigation section
 	content += categoryStyle.Render("Navigation:") + "\n"
-	content += fmt.Sprintf("  %s / %s   %s\n", keyStyle.Render("j"), keyStyle.Render("↓"), descStyle.Render("Move cursor down"))
-	content += fmt.Sprintf("  %s / %s     %s\n", keyStyle.Render("k"), keyStyle.Render("↑"), descStyle.Render("Move cursor up"))
+	content += formatKeyDesc("j / ↓", "Move cursor down") + "\n"
+	content += formatKeyDesc("k / ↑", "Move cursor up") + "\n"
 	content += "\n"
 
 	// Task actions section
 	content += categoryStyle.Render("Task Actions:") + "\n"
-	content += fmt.Sprintf("  %s          %s\n", keyStyle.Render("space"), descStyle.Render("Toggle task completion (☐/☒)"))
-	content += fmt.Sprintf("  %s          %s\n", keyStyle.Render("n"), descStyle.Render("Create new task"))
-	content += fmt.Sprintf("  %s          %s\n", keyStyle.Render("e"), descStyle.Render("Edit current task/section"))
-	content += fmt.Sprintf("  %s          %s\n", keyStyle.Render("d"), descStyle.Render("Delete current item"))
+	content += formatKeyDesc("space", "Toggle task completion (☐/☒)") + "\n"
+	content += formatKeyDesc("n", "Create new task") + "\n"
+	content += formatKeyDesc("e", "Edit current task/section") + "\n"
+	content += formatKeyDesc("d", "Delete current item") + "\n"
 	content += "\n"
 
 	// Section actions section
 	content += categoryStyle.Render("Section Actions:") + "\n"
-	content += fmt.Sprintf("  %s        %s\n", keyStyle.Render("enter"), descStyle.Render("Toggle section expand/collapse"))
-	content += fmt.Sprintf("  %s / %s     %s\n", keyStyle.Render("←"), keyStyle.Render("→"), descStyle.Render("Collapse/expand current section"))
-	content += fmt.Sprintf("  %s        %s\n", keyStyle.Render("h1-h6"), descStyle.Render("Create new section (level 1-6)"))
-	content += fmt.Sprintf("  %s          %s\n", keyStyle.Render("-"), descStyle.Render("Collapse all sections"))
-	content += fmt.Sprintf("  %s          %s\n", keyStyle.Render("+"), descStyle.Render("Expand all sections"))
+	content += formatKeyDesc("enter", "Toggle section expand/collapse") + "\n"
+	content += formatKeyDesc("← / →", "Collapse/expand current section") + "\n"
+	content += formatKeyDesc("h1-h6", "Create new section (level 1-6)") + "\n"
+	content += formatKeyDesc("-", "Collapse all sections") + "\n"
+	content += formatKeyDesc("+", "Expand all sections") + "\n"
 	content += "\n"
 
 	// Item movement section
 	content += categoryStyle.Render("Item Movement:") + "\n"
-	content += fmt.Sprintf("  %s / %s  %s\n", keyStyle.Render("Alt+j"), keyStyle.Render("Alt+↓"), descStyle.Render("Move item down"))
-	content += fmt.Sprintf("  %s / %s  %s\n", keyStyle.Render("Alt+k"), keyStyle.Render("Alt+↑"), descStyle.Render("Move item up"))
+	content += formatKeyDesc("Alt+j / Alt+↓", "Move item down") + "\n"
+	content += formatKeyDesc("Alt+k / Alt+↑", "Move item up") + "\n"
 	content += "\n"
 
 	// File operations section
 	content += categoryStyle.Render("File Operations:") + "\n"
-	content += fmt.Sprintf("  %s          %s\n", keyStyle.Render("s"), descStyle.Render("Save changes to file"))
+	content += formatKeyDesc("s", "Save changes to file") + "\n"
 	content += "\n"
 
 	// General section
 	content += categoryStyle.Render("General:") + "\n"
-	content += fmt.Sprintf("  %s          %s\n", keyStyle.Render("?"), descStyle.Render("Show/hide this help"))
-	content += fmt.Sprintf("  %s / %s %s\n", keyStyle.Render("q"), keyStyle.Render("Ctrl+C"), descStyle.Render("Quit application"))
+	content += formatKeyDesc("?", "Show/hide this help") + "\n"
+	content += formatKeyDesc("q / Ctrl+C", "Quit application") + "\n"
 
 	content += "\n\n"
-	content += footerStyle.Render("Press ? or Esc to close this help screen")
+	content += footerStyle.Render("Press q, ? or Esc to close this help screen")
 
 	// Render full-screen background with content
 	fullScreen := backgroundStyle.Render(content)
