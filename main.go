@@ -187,6 +187,7 @@ type Model struct {
 	editingIndex    int        // index of item being edited (-1 for new item)
 	newSectionLevel int        // level of section being created (0 = task)
 	hMode           bool       // whether we're waiting for a number after 'h'
+	helpMode        bool       // whether we're showing the help modal
 	dirty           bool       // whether the file has unsaved changes
 	fileModTime     time.Time  // file modification time
 	width           int        // terminal width
@@ -501,6 +502,16 @@ func (m Model) handleHMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleHelpMode processes key messages while in help mode
+func (m Model) handleHelpMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q", "esc", "?":
+		// Close help modal
+		m.helpMode = false
+	}
+	return m, nil
+}
+
 // handleNavigation processes key messages for navigation and actions
 func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -603,6 +614,9 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Expand all sections
 		m.expandAll()
 		m.updateVisibleItems()
+	case "?":
+		// Show help modal
+		m.helpMode = true
 	}
 
 	return m, nil
@@ -618,6 +632,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Clear screen to prevent UI corruption from wrapping when resizing smaller
 		return m, tea.ClearScreen
 	case tea.KeyMsg:
+		// Handle help mode separately
+		if m.helpMode {
+			return m.handleHelpMode(msg)
+		}
+
 		// Handle input mode separately
 		if m.inputMode {
 			return m.handleInputMode(msg)
@@ -864,13 +883,18 @@ func (m Model) renderInput(w io.Writer) {
 
 // renderFooter renders the status footer
 func (m Model) renderFooter(w io.Writer) {
-	// Left side: dirty status
+	// Left side: dirty status and help indicator
 	var leftText string
 	if m.dirty {
 		leftText = dirtyIndicatorStyle.Render("● Modified")
 	} else {
 		leftText = lastUpdateStyle.Render("Saved")
 	}
+	
+	// Add help indicator
+	helpIndicator := lipgloss.NewStyle().Foreground(mutedColor).Render(" • Press ? for help")
+	leftText += helpIndicator
+	
 	io.WriteString(w, leftText)
 
 	// Right side: filename and modification time
@@ -889,6 +913,107 @@ func (m Model) renderFooter(w io.Writer) {
 
 	io.WriteString(w, strings.Repeat(" ", padding))
 	io.WriteString(w, rightContent)
+}
+
+// renderHelpModal renders the help modal with all available shortcuts
+func (m Model) renderHelpModal(w io.Writer) {
+	if !m.helpMode {
+		return
+	}
+
+	// Modal styles
+	modalBorder := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(primaryColor).
+		Padding(1, 2).
+		Background(lipgloss.Color("#1F2937")).
+		Foreground(textColor)
+
+	headerStyle := lipgloss.NewStyle().
+		Foreground(primaryColor).
+		Bold(true).
+		Align(lipgloss.Center)
+
+	categoryStyle := lipgloss.NewStyle().
+		Foreground(accentColor).
+		Bold(true)
+
+	keyStyle := lipgloss.NewStyle().
+		Foreground(successColor).
+		Bold(true)
+
+	descStyle := lipgloss.NewStyle().
+		Foreground(textColor)
+
+	// Help content
+	content := headerStyle.Render("📖 KEYBOARD SHORTCUTS") + "\n\n"
+
+	// Navigation section
+	content += categoryStyle.Render("Navigation:") + "\n"
+	content += fmt.Sprintf("%s / %s   %s\n", keyStyle.Render("j"), keyStyle.Render("↓"), descStyle.Render("Move cursor down"))
+	content += fmt.Sprintf("%s / %s     %s\n", keyStyle.Render("k"), keyStyle.Render("↑"), descStyle.Render("Move cursor up"))
+	content += "\n"
+
+	// Task actions section
+	content += categoryStyle.Render("Task Actions:") + "\n"
+	content += fmt.Sprintf("%s          %s\n", keyStyle.Render("space"), descStyle.Render("Toggle task completion (☐/☒)"))
+	content += fmt.Sprintf("%s          %s\n", keyStyle.Render("n"), descStyle.Render("Create new task"))
+	content += fmt.Sprintf("%s          %s\n", keyStyle.Render("e"), descStyle.Render("Edit current task/section"))
+	content += fmt.Sprintf("%s          %s\n", keyStyle.Render("d"), descStyle.Render("Delete current item"))
+	content += "\n"
+
+	// Section actions section
+	content += categoryStyle.Render("Section Actions:") + "\n"
+	content += fmt.Sprintf("%s        %s\n", keyStyle.Render("enter"), descStyle.Render("Toggle section expand/collapse"))
+	content += fmt.Sprintf("%s / %s     %s\n", keyStyle.Render("←"), keyStyle.Render("→"), descStyle.Render("Collapse/expand current section"))
+	content += fmt.Sprintf("%s        %s\n", keyStyle.Render("h1-h6"), descStyle.Render("Create new section (level 1-6)"))
+	content += fmt.Sprintf("%s          %s\n", keyStyle.Render("-"), descStyle.Render("Collapse all sections"))
+	content += fmt.Sprintf("%s          %s\n", keyStyle.Render("+"), descStyle.Render("Expand all sections"))
+	content += "\n"
+
+	// Item movement section
+	content += categoryStyle.Render("Item Movement:") + "\n"
+	content += fmt.Sprintf("%s / %s  %s\n", keyStyle.Render("Alt+j"), keyStyle.Render("Alt+↓"), descStyle.Render("Move item down"))
+	content += fmt.Sprintf("%s / %s  %s\n", keyStyle.Render("Alt+k"), keyStyle.Render("Alt+↑"), descStyle.Render("Move item up"))
+	content += "\n"
+
+	// File operations section
+	content += categoryStyle.Render("File Operations:") + "\n"
+	content += fmt.Sprintf("%s          %s\n", keyStyle.Render("s"), descStyle.Render("Save changes to file"))
+	content += "\n"
+
+	// General section
+	content += categoryStyle.Render("General:") + "\n"
+	content += fmt.Sprintf("%s          %s\n", keyStyle.Render("?"), descStyle.Render("Show/hide this help"))
+	content += fmt.Sprintf("%s / %s %s\n", keyStyle.Render("q"), keyStyle.Render("Ctrl+C"), descStyle.Render("Quit application"))
+
+	modalContent := modalBorder.Render(content)
+
+	// Center the modal
+	modalWidth := lipgloss.Width(modalContent)
+	modalHeight := lipgloss.Height(modalContent)
+	
+	// Calculate position to center modal
+	x := max(0, (m.width-modalWidth)/2)
+	y := max(0, (m.height-modalHeight)/2)
+
+	// Center each line of the modal
+	modalLines := strings.Split(modalContent, "\n")
+	var centeredLines []string
+	
+	// Add vertical spacing
+	for i := 0; i < y; i++ {
+		centeredLines = append(centeredLines, "")
+	}
+	
+	// Add each modal line with horizontal centering
+	for _, line := range modalLines {
+		centeredLine := strings.Repeat(" ", x) + line
+		centeredLines = append(centeredLines, centeredLine)
+	}
+	
+	overlay := strings.Join(centeredLines, "\n")
+	io.WriteString(w, overlay)
 }
 
 // View renders the current model state as a string
@@ -912,6 +1037,12 @@ func (m Model) View() string {
 	// Render footer
 	s.WriteString("\n")
 	m.renderFooter(&s)
+
+	// Render help modal if active
+	if m.helpMode {
+		s.WriteString("\n")
+		m.renderHelpModal(&s)
+	}
 
 	return s.String()
 }
