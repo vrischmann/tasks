@@ -13,8 +13,6 @@ watch-run:
 fmt:
 	@printf "\x1b[34m===>\x1b[m  Running go fmt\n"
 	go fmt ./...
-	@printf "\x1b[34m===>\x1b[m  Running templ fmt\n"
-	go run github.com/a-h/templ/cmd/templ@latest fmt .
 
 check:
 	@printf "\x1b[34m===>\x1b[m  Running go vet\n"
