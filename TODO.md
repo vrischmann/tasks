@@ -9,10 +9,12 @@
 # Editing
 - [x] Allow navigating in the input field (left, right, ctrl+a, ctrl+e)
 - [ ] Allow multi line items
+- [ ] Add vim mode ?
 
 # Misc
 - [x] Add a flag to disable the banner
 - [x] The banner does not show up anymore even without the no-banner flag
+- [ ] Add scrolling support
 
 # Development
 - [x] Add test coverage support in Just
