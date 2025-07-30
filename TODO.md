@@ -12,7 +12,7 @@
 
 # Misc
 - [x] Add a flag to disable the banner
-- [ ] The banner does not show up anymore even without the no-banner flag
+- [x] The banner does not show up anymore even without the no-banner flag
 
 # Development
 - [x] Add test coverage support in Just
