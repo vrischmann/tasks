@@ -187,7 +187,7 @@ type Model struct {
 	editingIndex    int        // index of item being edited (-1 for new item)
 	newSectionLevel int        // level of section being created (0 = task)
 	hMode           bool       // whether we're waiting for a number after 'h'
-	helpMode        bool       // whether we're showing the help modal
+	helpMode        bool       // whether we're showing the help screen
 	dirty           bool       // whether the file has unsaved changes
 	fileModTime     time.Time  // file modification time
 	width           int        // terminal width
@@ -506,7 +506,7 @@ func (m Model) handleHMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) handleHelpMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "q", "esc", "?":
-		// Close help modal
+		// Close help screen
 		m.helpMode = false
 	}
 	return m, nil
@@ -615,7 +615,7 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.expandAll()
 		m.updateVisibleItems()
 	case "?":
-		// Show help modal
+		// Show help screen
 		m.helpMode = true
 	}
 
@@ -890,11 +890,11 @@ func (m Model) renderFooter(w io.Writer) {
 	} else {
 		leftText = lastUpdateStyle.Render("Saved")
 	}
-	
+
 	// Add help indicator
 	helpIndicator := lipgloss.NewStyle().Foreground(mutedColor).Render(" • Press ? for help")
 	leftText += helpIndicator
-	
+
 	io.WriteString(w, leftText)
 
 	// Right side: filename and modification time
@@ -915,8 +915,8 @@ func (m Model) renderFooter(w io.Writer) {
 	io.WriteString(w, rightContent)
 }
 
-// renderHelpModal renders the full-screen help modal with all available shortcuts
-func (m Model) renderHelpModal(w io.Writer) {
+// renderHelpScreen renders the full-screen help screen with all available shortcuts
+func (m Model) renderHelpScreen(w io.Writer) {
 	if !m.helpMode {
 		return
 	}
@@ -1012,9 +1012,9 @@ func (m Model) renderHelpModal(w io.Writer) {
 func (m Model) View() string {
 	var s strings.Builder
 
-	// If help mode is active, show only the help modal
+	// If help mode is active, show only the help screen
 	if m.helpMode {
-		m.renderHelpModal(&s)
+		m.renderHelpScreen(&s)
 		return s.String()
 	}
 

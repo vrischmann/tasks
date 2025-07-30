@@ -2,7 +2,9 @@ package main
 
 import (
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
@@ -290,4 +292,78 @@ func TestBoundaryNavigation(t *testing.T) {
 
 	// Cursor should be at the last item (index 1)
 	require.Equal(t, 1, finalModel.cursor, "Expected cursor at 1")
+}
+
+// Help Screen Tests
+
+func TestHelpScreenActivation(t *testing.T) {
+	// Create a test file with some content
+	content := `# Test Section
+- [ ] Test task
+`
+	filename := createTestFile(t, content)
+
+	testCases := []struct {
+		keyType tea.KeyType
+		runes   []rune
+	}{
+		{tea.KeyCtrlC, []rune{0}},
+		{tea.KeyRunes, []rune{'q'}},
+		{tea.KeyEscape, []rune{0}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.keyType.String(), func(t *testing.T) {
+			model := mustInitialModel(t, filename)
+
+			// Verify help mode is initially false
+			require.False(t, model.helpMode, "Help mode should be initially false")
+
+			tm := teatest.NewTestModel(t, model, teatest.WithInitialTermSize(80, 24))
+
+			// Send '?' key to activate help screen
+			tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
+
+			// Wait for update to process - look for help content that should be unique to help screen
+			teatest.WaitFor(t, tm.Output(), func(bts []byte) bool {
+				output := string(bts)
+				return strings.Contains(output, "Press q, ? or Esc to close this help screen")
+			}, teatest.WithCheckInterval(time.Millisecond*100), teatest.WithDuration(time.Second))
+
+			// Exit the help screen
+			tm.Send(tea.KeyMsg{Type: tc.keyType, Runes: tc.runes})
+
+			// Exit the program
+			tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+
+			// Wait for program end
+			tm.WaitFinished(t)
+		})
+	}
+}
+
+func TestHelpScreenContentDisplay(t *testing.T) {
+	content := `- [ ] Test task`
+	filename := createTestFile(t, content)
+	model := mustInitialModel(t, filename)
+
+	tm := teatest.NewTestModel(t, model, teatest.WithInitialTermSize(80, 24))
+
+	// Activate help screen
+	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
+
+	// Wait for help screen content
+	teatest.WaitFor(t, tm.Output(), func(bts []byte) bool {
+		output := string(bts)
+		return strings.Contains(output, "Press q, ? or Esc to close this help screen")
+	})
+
+	// Exit the help screen
+	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+
+	// Send quit to terminate the program
+	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+
+	// Wait for program end
+	tm.WaitFinished(t)
 }
