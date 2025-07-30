@@ -205,14 +205,6 @@ const (
 	BannerDisabled
 )
 
-// bannerModeFromBool converts a boolean to a bannerMode
-func bannerModeFromBool(enabled bool) BannerMode {
-	if enabled {
-		return BannerEnabled
-	}
-	return BannerDisabled
-}
-
 // initialModel initializes the application model with data from a Markdown file
 func initialModel(filename string, bannerMode BannerMode) (Model, error) {
 	items, err := parseMarkdownFile(filename)
@@ -1064,7 +1056,6 @@ func getVersion() string {
 }
 
 func main() {
-	// Read environment variable for default banner setting
 	defaultNoBanner := os.Getenv("TASKS_NO_BANNER") != ""
 
 	var showVersion = flag.Bool("version", false, "show version information")
@@ -1084,7 +1075,13 @@ func main() {
 
 	filename := args[0]
 
-	model, err := initialModel(filename, bannerModeFromBool(*noBanner))
+	// Determine banner mode
+	bannerMode := BannerEnabled
+	if *noBanner {
+		bannerMode = BannerDisabled
+	}
+
+	model, err := initialModel(filename, bannerMode)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
