@@ -658,7 +658,11 @@ func (m Model) saveToFile() error {
 }
 
 // renderBanner generates a stylized banner for the application
-func renderBanner(w io.Writer) {
+func (m Model) renderBanner(w io.Writer) {
+	if m.noBanner {
+		return
+	}
+
 	// Block-style ASCII art for "Tasks" with left arrow pattern like Gemini CLI
 	lines := []string{
 		"███           ████████  █████   ███████ ██   ██ ███████",
@@ -698,6 +702,8 @@ func renderBanner(w io.Writer) {
 		}
 		io.WriteString(w, "\n")
 	}
+
+	io.WriteString(w, "\n")
 }
 
 func (m Model) renderVisibleItems(w io.Writer) {
@@ -872,10 +878,7 @@ func (m Model) View() string {
 	var s strings.Builder
 
 	// Render banner if not disabled
-	if !m.noBanner {
-		renderBanner(&s)
-		s.WriteString("\n")
-	}
+	m.renderBanner(&s)
 
 	if len(m.items) == 0 {
 		noTasksMsg := taskPendingStyle.Render("No tasks found. Press 'q' to quit.")
