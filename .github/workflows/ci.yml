@@ -51,6 +51,9 @@ jobs:
     - name: Build
       run: go build -v ./...
 
+    - name: Test
+      run: go test -v -timeout=10s ./...
+
     - name: Test build works
       run: |
         go build -o tasks
