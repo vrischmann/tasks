@@ -13,4 +13,4 @@
 - [x] Add a flag to disable the banner
 
 # Development
-- [ ] Add test coverage support in Just
+- [x] Add test coverage support in Just
