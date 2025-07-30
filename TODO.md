@@ -2,7 +2,7 @@
 - [ ] Keep track of the last files opened (would require a database)
 - [ ] Keep track of the collapsed/expanded state
 - [ ] AI integration ? maybe
-- [ ] Add a modal to show all the shortcuts
+- [x] Add a modal to show all the shortcuts
 - [ ] Add ctrl+f and ctrl+b for navigating faster
 - [ ] Open without providing a file (will be store in memory only; saving will ask for a filename)
 
