@@ -7,7 +7,7 @@
 - [ ] Open without providing a file (will be store in memory only; saving will ask for a filename)
 
 # Editing
-- [ ] Allow navigating in the input field (left, right, ctrl+a, ctrl+e)
+- [x] Allow navigating in the input field (left, right, ctrl+a, ctrl+e)
 - [ ] Allow multi line items
 
 # Misc
