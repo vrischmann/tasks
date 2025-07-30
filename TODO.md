@@ -9,7 +9,7 @@
 - [ ] Allow multi line items
 
 # Misc
-- [ ] Add a flag to disable the banner
+- [x] Add a flag to disable the banner
 
 # Development
 - [ ] Add test coverage support in Just
