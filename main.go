@@ -191,10 +191,11 @@ type Model struct {
 	fileModTime     time.Time // file modification time
 	width           int       // terminal width
 	height          int       // terminal height
+	noBanner        bool      // whether to hide the banner
 }
 
 // initialModel initializes the application model with data from a Markdown file
-func initialModel(filename string) (Model, error) {
+func initialModel(filename string, noBanner bool) (Model, error) {
 	items, err := parseMarkdownFile(filename)
 	if err != nil {
 		return Model{}, fmt.Errorf("unable to parse file %q, err: %w", filename, err)
@@ -222,6 +223,7 @@ func initialModel(filename string) (Model, error) {
 		fileModTime:     modTime,
 		width:           80, // default width, will be updated by WindowSizeMsg
 		height:          24, // default height, will be updated by WindowSizeMsg
+		noBanner:        noBanner,
 	}
 
 	m.updateVisibleItems()
@@ -869,9 +871,11 @@ func (m Model) renderFooter(w io.Writer) {
 func (m Model) View() string {
 	var s strings.Builder
 
-	// Render banner
-	renderBanner(&s)
-	s.WriteString("\n")
+	// Render banner if not disabled
+	if !m.noBanner {
+		renderBanner(&s)
+		s.WriteString("\n")
+	}
 
 	if len(m.items) == 0 {
 		noTasksMsg := taskPendingStyle.Render("No tasks found. Press 'q' to quit.")
@@ -916,7 +920,11 @@ func getVersion() string {
 }
 
 func main() {
+	// Read environment variable for default banner setting
+	defaultNoBanner := os.Getenv("TASKS_NO_BANNER") != ""
+
 	var showVersion = flag.Bool("version", false, "show version information")
+	var noBanner = flag.Bool("no-banner", defaultNoBanner, "disable the banner display (can be set with the TASKS_NO_BANNER environment variable)")
 	flag.Parse()
 
 	if *showVersion {
@@ -926,13 +934,13 @@ func main() {
 
 	args := flag.Args()
 	if len(args) < 1 {
-		fmt.Println("Usage: tasks [--version] <markdown-file>")
+		fmt.Println("Usage: tasks [--version] [--no-banner] <markdown-file>")
 		os.Exit(1)
 	}
 
 	filename := args[0]
 
-	model, err := initialModel(filename)
+	model, err := initialModel(filename, *noBanner)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
