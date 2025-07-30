@@ -184,6 +184,7 @@ type Model struct {
 	visibleItems    []int      // indices of items that are currently visible (sections and tasks)
 	inputMode       bool       // whether we're in input mode
 	inputText       string     // text being typed
+	inputCursor     int        // cursor position within input text
 	editingIndex    int        // index of item being edited (-1 for new item)
 	newSectionLevel int        // level of section being created (0 = task)
 	hMode           bool       // whether we're waiting for a number after 'h'
@@ -227,6 +228,7 @@ func initialModel(filename string, bannerMode BannerMode) (Model, error) {
 		visibleItems:    []int{},
 		inputMode:       false,
 		inputText:       "",
+		inputCursor:     0,
 		editingIndex:    -1,
 		newSectionLevel: 0,
 		hMode:           false,
@@ -370,6 +372,7 @@ func (m Model) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	exitInputMode := func() {
 		m.inputMode = false
 		m.inputText = ""
+		m.inputCursor = 0
 		m.editingIndex = -1
 		m.newSectionLevel = 0
 	}
@@ -451,14 +454,42 @@ func (m Model) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		saveInput()
 	case "esc":
 		exitInputMode()
+	case "left":
+		// Move cursor left in input
+		if m.inputCursor > 0 {
+			m.inputCursor--
+		}
+	case "right":
+		// Move cursor right in input
+		if m.inputCursor < utf8.RuneCountInString(m.inputText) {
+			m.inputCursor++
+		}
+	case "ctrl+a":
+		// Move cursor to beginning
+		m.inputCursor = 0
+	case "ctrl+e":
+		// Move cursor to end
+		m.inputCursor = utf8.RuneCountInString(m.inputText)
 	case "backspace":
-		if len(m.inputText) > 0 {
-			m.inputText = m.inputText[:len(m.inputText)-1]
+		if m.inputCursor > 0 {
+			// Convert to runes for proper Unicode handling
+			runes := []rune(m.inputText)
+			// Remove character before cursor
+			m.inputText = string(runes[:m.inputCursor-1]) + string(runes[m.inputCursor:])
+			m.inputCursor--
 		}
 	default:
-		// Add character to input
+		// Add character to input at cursor position
 		if utf8.RuneCountInString(msg.String()) == 1 {
-			m.inputText += msg.String()
+			// Convert to runes for proper Unicode handling
+			runes := []rune(m.inputText)
+			// Insert character at cursor position
+			newRunes := make([]rune, 0, len(runes)+1)
+			newRunes = append(newRunes, runes[:m.inputCursor]...)
+			newRunes = append(newRunes, []rune(msg.String())...)
+			newRunes = append(newRunes, runes[m.inputCursor:]...)
+			m.inputText = string(newRunes)
+			m.inputCursor++
 		}
 	}
 	return m, nil
@@ -469,6 +500,7 @@ func (m Model) handleHMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	handle := func(level int) {
 		m.inputMode = true
 		m.inputText = ""
+		m.inputCursor = 0
 		m.editingIndex = -1
 		m.newSectionLevel = level
 		m.hMode = false
@@ -546,6 +578,7 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Enter input mode for new task
 		m.inputMode = true
 		m.inputText = ""
+		m.inputCursor = 0
 		m.editingIndex = -1
 		m.newSectionLevel = 0
 	case "h":
@@ -557,6 +590,7 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if itemIndex >= 0 {
 			m.inputMode = true
 			m.inputText = m.items[itemIndex].Content
+			m.inputCursor = utf8.RuneCountInString(m.inputText) // Position cursor at end
 			m.editingIndex = itemIndex
 		}
 	case "alt+j", "alt+down":
@@ -866,11 +900,14 @@ func (m Model) renderInput(w io.Writer) {
 		}
 	}
 
-	// Create input content with cursor inside the border
-	inputContent := m.inputText + "│"
+	// Create input content with cursor at the correct position
+	runes := []rune(m.inputText)
+	textBeforeCursor := string(runes[:m.inputCursor])
+	textAfterCursor := string(runes[m.inputCursor:])
+	inputContent := textBeforeCursor + "│" + textAfterCursor
 	inputField := inputStyle.Render(inputContent)
 	io.WriteString(w, prompt+" "+inputField+"\n")
-	io.WriteString(w, helpStyle.Render("Press Enter to save, Esc to cancel")+"\n")
+	io.WriteString(w, helpStyle.Render("Press Enter to save, Esc to cancel, ←/→ to navigate, Ctrl+A/E for home/end")+"\n")
 }
 
 // renderFooter renders the status footer
@@ -985,6 +1022,13 @@ func (m Model) renderHelpScreen(w io.Writer) {
 	// File operations section
 	content += categoryStyle.Render("File Operations:") + "\n"
 	content += formatKeyDesc("s", "Save changes to file") + "\n"
+	content += "\n"
+
+	// Input navigation section
+	content += categoryStyle.Render("Input Navigation:") + "\n"
+	content += formatKeyDesc("← / →", "Move cursor left/right in input field") + "\n"
+	content += formatKeyDesc("Ctrl+A", "Move cursor to beginning of input") + "\n"
+	content += formatKeyDesc("Ctrl+E", "Move cursor to end of input") + "\n"
 	content += "\n"
 
 	// General section
