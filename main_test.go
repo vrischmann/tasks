@@ -35,7 +35,7 @@ func createTestFile(t *testing.T, content string) string {
 func mustInitialModel(t *testing.T, filename string) Model {
 	t.Helper()
 
-	model, err := initialModel(filename)
+	model, err := initialModel(filename, BannerDisabled)
 	require.NoError(t, err)
 
 	return model

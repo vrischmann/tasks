@@ -181,21 +181,39 @@ type Model struct {
 	items           []Item
 	cursor          int
 	filename        string
-	visibleItems    []int     // indices of items that are currently visible (sections and tasks)
-	inputMode       bool      // whether we're in input mode
-	inputText       string    // text being typed
-	editingIndex    int       // index of item being edited (-1 for new item)
-	newSectionLevel int       // level of section being created (0 = task)
-	hMode           bool      // whether we're waiting for a number after 'h'
-	dirty           bool      // whether the file has unsaved changes
-	fileModTime     time.Time // file modification time
-	width           int       // terminal width
-	height          int       // terminal height
-	noBanner        bool      // whether to hide the banner
+	visibleItems    []int      // indices of items that are currently visible (sections and tasks)
+	inputMode       bool       // whether we're in input mode
+	inputText       string     // text being typed
+	editingIndex    int        // index of item being edited (-1 for new item)
+	newSectionLevel int        // level of section being created (0 = task)
+	hMode           bool       // whether we're waiting for a number after 'h'
+	dirty           bool       // whether the file has unsaved changes
+	fileModTime     time.Time  // file modification time
+	width           int        // terminal width
+	height          int        // terminal height
+	bannerMode      BannerMode // whether to hide the banner
+}
+
+// BannerMode represents the mode for displaying the banner
+type BannerMode int
+
+const (
+	// BannerEnabled means the banner is shown
+	BannerEnabled BannerMode = iota + 1
+	// BannerDisabled means the banner is hidden
+	BannerDisabled
+)
+
+// bannerModeFromBool converts a boolean to a bannerMode
+func bannerModeFromBool(enabled bool) BannerMode {
+	if enabled {
+		return BannerEnabled
+	}
+	return BannerDisabled
 }
 
 // initialModel initializes the application model with data from a Markdown file
-func initialModel(filename string, noBanner bool) (Model, error) {
+func initialModel(filename string, bannerMode BannerMode) (Model, error) {
 	items, err := parseMarkdownFile(filename)
 	if err != nil {
 		return Model{}, fmt.Errorf("unable to parse file %q, err: %w", filename, err)
@@ -223,7 +241,7 @@ func initialModel(filename string, noBanner bool) (Model, error) {
 		fileModTime:     modTime,
 		width:           80, // default width, will be updated by WindowSizeMsg
 		height:          24, // default height, will be updated by WindowSizeMsg
-		noBanner:        noBanner,
+		bannerMode:      bannerMode,
 	}
 
 	m.updateVisibleItems()
@@ -659,7 +677,7 @@ func (m Model) saveToFile() error {
 
 // renderBanner generates a stylized banner for the application
 func (m Model) renderBanner(w io.Writer) {
-	if m.noBanner {
+	if m.bannerMode != BannerEnabled {
 		return
 	}
 
@@ -943,7 +961,7 @@ func main() {
 
 	filename := args[0]
 
-	model, err := initialModel(filename, *noBanner)
+	model, err := initialModel(filename, bannerModeFromBool(*noBanner))
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
