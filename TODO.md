@@ -14,7 +14,7 @@
 # Misc
 - [x] Add a flag to disable the banner
 - [x] The banner does not show up anymore even without the no-banner flag
-- [ ] Add scrolling support
+- [x] Add scrolling support
 
 # Development
 - [x] Add test coverage support in Just
