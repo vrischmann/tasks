@@ -8,7 +8,7 @@ Yes, this has been vibe coded.
 
 ## Features
 
-- ✨ **Interactive Terminal UI** - Navigate with Vim-style keys
+- ✨ **Interactive Terminal UI** - Navigate with Vim-style keys including page navigation
 - 📋 **Markdown Integration** - Works with standard markdown task lists
 - 🌳 **Hierarchical Structure** - Support for nested sections and tasks
 - 🎨 **Beautiful Styling** - Modern colors, typography, and consistent highlighting
@@ -83,6 +83,8 @@ The application works with standard markdown task lists:
 |-----|--------|
 | `j` / `↓` | Move down |
 | `k` / `↑` | Move up |
+| `Ctrl+F` | Page forward (down) |
+| `Ctrl+B` | Page backward (up) |
 | `q` | Quit application |
 
 ### Task Management

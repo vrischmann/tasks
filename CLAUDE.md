@@ -39,6 +39,9 @@ go build && ./tasks demo.md  # Quick test
 - `initialModel()` - Initialize Bubble Tea model with file data
 - `updateVisibleItems()` - Manage section collapse/expand state
 - `adjustCursor()` - Ensure cursor stays within valid bounds
+- `calculateViewportHeight()` - Calculate available viewport space for content
+- `ensureCursorInViewport()` - Scroll viewport to keep cursor visible (preserves partial pages)
+- `clampScrollOffset()` - Ensure scroll position stays within valid bounds
 - `deleteItem()` - Delete tasks or sections with all contents
 - `collapseAll()` / `expandAll()` - Global section state management
 - `Update()` - Handle all keyboard input and state changes
@@ -54,6 +57,8 @@ go build && ./tasks demo.md  # Quick test
 
 ### Navigation & Controls
 - `j`/`k` or `↑`/`↓` - Navigate between sections and tasks
+- `Ctrl+F` - Page forward (down) - vim-style page navigation
+- `Ctrl+B` - Page backward (up) - vim-style page navigation
 - `space` - Toggle task completion (☒/☐)
 - `enter` - Toggle section expand/collapse
 - `←` - Collapse current section
