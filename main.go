@@ -182,6 +182,7 @@ type Model struct {
 	cursor          int
 	filename        string
 	visibleItems    []int      // indices of items that are currently visible (sections and tasks)
+	scrollOffset    int        // first visible item index in the viewport
 	inputMode       bool       // whether we're in input mode
 	inputText       string     // text being typed
 	inputCursor     int        // cursor position within input text
@@ -226,6 +227,7 @@ func initialModel(filename string, bannerMode BannerMode) (Model, error) {
 		cursor:          0,
 		filename:        filename,
 		visibleItems:    []int{},
+		scrollOffset:    0,
 		inputMode:       false,
 		inputText:       "",
 		inputCursor:     0,
@@ -298,11 +300,12 @@ func (m *Model) updateVisibleItems() {
 	m.adjustCursor()
 }
 
-// adjustCursor ensures the cursor is within valid bounds
+// adjustCursor ensures the cursor is within valid bounds and viewport
 func (m *Model) adjustCursor() {
 	if m.cursor >= len(m.visibleItems) && len(m.visibleItems) > 0 {
 		m.cursor = len(m.visibleItems) - 1
 	}
+	m.ensureCursorInViewport()
 }
 
 // deleteItem deletes an item and all its children if it's a section
@@ -365,6 +368,72 @@ func (m Model) getCurrentItemIndex() int {
 		return -1
 	}
 	return m.visibleItems[m.cursor]
+}
+
+// calculateViewportHeight calculates how many lines are available for displaying items
+func (m Model) calculateViewportHeight() int {
+	usedHeight := 0
+
+	// Banner takes 6 lines (5 lines of ASCII art + 1 blank line after)
+	if m.bannerMode == BannerEnabled {
+		usedHeight += 6
+	}
+
+	// Input field takes 3 lines when active (blank line + prompt+input + help text)
+	if m.inputMode {
+		usedHeight += 3
+	}
+
+	// Footer takes 2 lines (blank line + footer content)
+	usedHeight += 2
+
+	// Calculate available height, ensuring minimum of 3 lines for content
+	availableHeight := m.height - usedHeight
+	if availableHeight < 3 {
+		availableHeight = 3
+	}
+
+	return availableHeight
+}
+
+// clampScrollOffset ensures scrollOffset is within valid bounds
+func (m *Model) clampScrollOffset() {
+	viewportHeight := m.calculateViewportHeight()
+
+	// Ensure scrollOffset doesn't go negative
+	if m.scrollOffset < 0 {
+		m.scrollOffset = 0
+	}
+
+	// Ensure scrollOffset doesn't exceed the maximum needed
+	maxScrollOffset := len(m.visibleItems) - viewportHeight
+	if maxScrollOffset < 0 {
+		maxScrollOffset = 0
+	}
+	if m.scrollOffset > maxScrollOffset {
+		m.scrollOffset = maxScrollOffset
+	}
+}
+
+// ensureCursorInViewport adjusts scrollOffset to ensure the cursor is visible in the viewport
+func (m *Model) ensureCursorInViewport() {
+	if len(m.visibleItems) == 0 {
+		return
+	}
+
+	viewportHeight := m.calculateViewportHeight()
+
+	// If cursor is above the viewport, scroll up
+	if m.cursor < m.scrollOffset {
+		m.scrollOffset = m.cursor
+	}
+
+	// If cursor is below the viewport, scroll down
+	if m.cursor >= m.scrollOffset+viewportHeight {
+		m.scrollOffset = m.cursor - viewportHeight + 1
+	}
+
+	m.clampScrollOffset()
 }
 
 // handleInputMode processes key messages while in input mode (editing or creating items)
@@ -544,10 +613,12 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "j", "down":
 		if m.cursor < len(m.visibleItems)-1 {
 			m.cursor++
+			m.ensureCursorInViewport()
 		}
 	case "k", "up":
 		if m.cursor > 0 {
 			m.cursor--
+			m.ensureCursorInViewport()
 		}
 	case " ":
 		itemIndex := m.getCurrentItemIndex()
@@ -772,18 +843,26 @@ func (m Model) renderBanner(w io.Writer) {
 func (m Model) renderVisibleItems(w io.Writer) {
 	var sectionStack []*Item // Stack to track sections for indentation
 
-	for visIdx, itemIndex := range m.visibleItems {
+	viewportHeight := m.calculateViewportHeight()
+	endIdx := m.scrollOffset + viewportHeight
+	if endIdx > len(m.visibleItems) {
+		endIdx = len(m.visibleItems)
+	}
+
+	// Only render items within the viewport
+	for viewportIdx := m.scrollOffset; viewportIdx < endIdx; viewportIdx++ {
+		itemIndex := m.visibleItems[viewportIdx]
 		item := m.items[itemIndex]
 
 		// Update section stack by finding all sections up to this item
 		sectionStack = []*Item{}
-		for i := range itemIndex {
-			if m.items[i].Type == TypeSection {
+		for j := range itemIndex {
+			if m.items[j].Type == TypeSection {
 				// Update stack based on level
-				for len(sectionStack) > 0 && sectionStack[len(sectionStack)-1].Level >= m.items[i].Level {
+				for len(sectionStack) > 0 && sectionStack[len(sectionStack)-1].Level >= m.items[j].Level {
 					sectionStack = sectionStack[:len(sectionStack)-1]
 				}
-				sectionStack = append(sectionStack, &m.items[i])
+				sectionStack = append(sectionStack, &m.items[j])
 			}
 		}
 
@@ -815,7 +894,7 @@ func (m Model) renderVisibleItems(w io.Writer) {
 			availableWidth := max(m.width-indentWidth, 10) // minimum 10 chars
 
 			// Highlight current section
-			if m.cursor == visIdx {
+			if m.cursor == viewportIdx {
 				highlightStyle := selectedStyle.Width(availableWidth)
 
 				var styledContent string
@@ -857,7 +936,7 @@ func (m Model) renderVisibleItems(w io.Writer) {
 			availableWidth := max(m.width-indentWidth, 10) // minimum 10 chars
 
 			// Style the current task differently
-			if m.cursor == visIdx {
+			if m.cursor == viewportIdx {
 				highlightStyle := selectedStyle.Width(availableWidth)
 
 				var styledContent string
