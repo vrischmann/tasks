@@ -398,15 +398,13 @@ func (m Model) calculateViewportHeight() int {
 
 // clampScrollOffset ensures scrollOffset is within valid bounds
 func (m *Model) clampScrollOffset() {
-	viewportHeight := m.calculateViewportHeight()
-
 	// Ensure scrollOffset doesn't go negative
 	if m.scrollOffset < 0 {
 		m.scrollOffset = 0
 	}
 
-	// Ensure scrollOffset doesn't exceed the maximum needed
-	maxScrollOffset := len(m.visibleItems) - viewportHeight
+	// Ensure scrollOffset doesn't go past the last item
+	maxScrollOffset := len(m.visibleItems) - 1
 	if maxScrollOffset < 0 {
 		maxScrollOffset = 0
 	}
@@ -428,7 +426,7 @@ func (m *Model) ensureCursorInViewport() {
 		m.scrollOffset = m.cursor
 	}
 
-	// If cursor is below the viewport, scroll down
+	// If cursor is below the viewport, scroll down just enough to show it
 	if m.cursor >= m.scrollOffset+viewportHeight {
 		m.scrollOffset = m.cursor - viewportHeight + 1
 	}
@@ -711,6 +709,31 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Expand all sections
 		m.expandAll()
 		m.updateVisibleItems()
+	case "ctrl+f":
+		// Page forward (down) - advance viewport to next page
+		viewportHeight := m.calculateViewportHeight()
+		if len(m.visibleItems) > 0 {
+			// Calculate where we would scroll to
+			newScrollOffset := m.scrollOffset + viewportHeight
+
+			// If the new scroll position would go past the end, don't scroll
+			if newScrollOffset < len(m.visibleItems) {
+				m.scrollOffset = newScrollOffset
+				m.cursor = m.scrollOffset
+			}
+			// If we're already showing the last page (partial or full), don't scroll
+		}
+	case "ctrl+b":
+		// Page backward (up) - move viewport to previous page
+		viewportHeight := m.calculateViewportHeight()
+		if len(m.visibleItems) > 0 {
+			// Move scrollOffset back by viewport height
+			newScrollOffset := m.scrollOffset - viewportHeight
+			m.scrollOffset = max(newScrollOffset, 0)
+
+			// Position cursor at the top of the new viewport
+			m.cursor = m.scrollOffset
+		}
 	case "?":
 		// Show help screen
 		m.helpMode = true
@@ -1073,6 +1096,8 @@ func (m Model) renderHelpScreen(w io.Writer) {
 	content += categoryStyle.Render("Navigation:") + "\n"
 	content += formatKeyDesc("j / ↓", "Move cursor down") + "\n"
 	content += formatKeyDesc("k / ↑", "Move cursor up") + "\n"
+	content += formatKeyDesc("Ctrl+F", "Page forward (down)") + "\n"
+	content += formatKeyDesc("Ctrl+B", "Page backward (up)") + "\n"
 	content += "\n"
 
 	// Task actions section
