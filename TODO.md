@@ -5,6 +5,7 @@
 - [x] Add a modal to show all the shortcuts
 - [x] Add ctrl+f and ctrl+b for navigating faster
 - [ ] Open without providing a file (will be store in memory only; saving will ask for a filename)
+- [ ] Add metadata to the line
 
 # Editing
 - [x] Allow navigating in the input field (left, right, ctrl+a, ctrl+e)
