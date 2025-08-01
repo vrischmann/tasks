@@ -236,7 +236,7 @@ func deleteItem(items []Item, index int) []Item {
 func fuzzyMatch(pattern, text string) float64 {
 	pattern = strings.ToLower(pattern)
 	text = strings.ToLower(text)
-	
+
 	// Handle empty strings
 	if len(pattern) == 0 && len(text) == 0 {
 		return 1.0
@@ -244,50 +244,50 @@ func fuzzyMatch(pattern, text string) float64 {
 	if len(pattern) == 0 || len(text) == 0 {
 		return 0.0
 	}
-	
+
 	if pattern == text {
 		return 1.0
 	}
-	
+
 	if strings.Contains(text, pattern) {
 		// Exact substring match gets high score
 		return 0.8
 	}
-	
+
 	// Character-by-character fuzzy matching
 	patternIdx := 0
 	matches := 0
-	
+
 	for _, char := range text {
 		if patternIdx < len(pattern) && char == rune(pattern[patternIdx]) {
 			matches++
 			patternIdx++
 		}
 	}
-	
+
 	// Must match all characters in the pattern to be considered a match
 	if matches < len(pattern) {
 		return 0.0
 	}
-	
+
 	// Score based on how tightly the characters are packed together
 	// and the length ratio between pattern and text
 	charMatchRatio := float64(matches) / float64(len(pattern))
 	lengthPenalty := float64(len(pattern)) / float64(len(text))
-	
+
 	// Calculate base score
 	score := charMatchRatio * lengthPenalty * 0.6
-	
+
 	// Add a small bonus to distinguish exact character order matches
 	if score > 0 {
 		score = score + 0.05
 	}
-	
+
 	// Only return a meaningful score if we have a decent match ratio
 	if score < 0.3 {
 		return 0.0
 	}
-	
+
 	return score
 }
 
@@ -301,26 +301,26 @@ type SearchResult struct {
 // searchItems performs fuzzy search across all items
 func searchItems(items []Item, queries []string) []SearchResult {
 	var results []SearchResult
-	
+
 	// Return empty if no queries provided
 	if len(queries) == 0 {
 		return results
 	}
-	
+
 	for i, item := range items {
 		totalScore := 0.0
 		matchCount := 0
-		
+
 		// Combine all query terms into one search pattern
 		searchPattern := strings.Join(queries, " ")
-		
+
 		// Search in item content
 		contentScore := fuzzyMatch(searchPattern, item.Content)
 		if contentScore > 0 {
 			totalScore += contentScore
 			matchCount++
 		}
-		
+
 		// Also try matching individual query terms
 		for _, query := range queries {
 			if strings.TrimSpace(query) == "" {
@@ -333,7 +333,7 @@ func searchItems(items []Item, queries []string) []SearchResult {
 				break
 			}
 		}
-		
+
 		// Only include results with a minimum score
 		if totalScore > 0.3 {
 			avgScore := totalScore / float64(matchCount)
@@ -344,7 +344,7 @@ func searchItems(items []Item, queries []string) []SearchResult {
 			})
 		}
 	}
-	
+
 	// Sort results by score (highest first)
 	for i := 0; i < len(results)-1; i++ {
 		for j := i + 1; j < len(results); j++ {
@@ -353,7 +353,7 @@ func searchItems(items []Item, queries []string) []SearchResult {
 			}
 		}
 	}
-	
+
 	return results
 }
 

@@ -593,7 +593,7 @@ func TestFuzzyMatch(t *testing.T) {
 		t.Run("order matters", func(t *testing.T) {
 			score1 := fuzzyMatch("abc", "aabbcc") // in order
 			score2 := fuzzyMatch("abc", "ccbbaa") // reverse order
-			
+
 			require.GreaterOrEqual(t, score1, 0.3, "In-order characters should match")
 			require.Equal(t, 0.0, score2, "Out-of-order characters should not match")
 		})
