@@ -500,3 +500,34 @@ func TestErrorHandling_InvalidOperations(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid item index")
 }
+
+func TestLineNumberMapping(t *testing.T) {
+	// Create a file with empty lines and spacing
+	content := `# Main Section
+
+This has empty lines for spacing.
+
+## Subsection
+
+- [ ] First task
+- [x] Second task
+
+More text here.
+
+### Deep section
+- [ ] Deep task
+`
+	filename := createTestFile(t, content)
+
+	items, err := parseMarkdownFile(filename)
+	require.NoError(t, err)
+	require.Len(t, items, 6) // 3 sections + 3 tasks
+
+	// Verify that line numbers are tracked correctly
+	require.Equal(t, 1, items[0].LineNumber, "Main Section should be on line 1")
+	require.Equal(t, 5, items[1].LineNumber, "Subsection should be on line 5") 
+	require.Equal(t, 7, items[2].LineNumber, "First task should be on line 7")
+	require.Equal(t, 8, items[3].LineNumber, "Second task should be on line 8")
+	require.Equal(t, 12, items[4].LineNumber, "Deep section should be on line 12")
+	require.Equal(t, 13, items[5].LineNumber, "Deep task should be on line 13")
+}

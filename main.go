@@ -22,11 +22,12 @@ const (
 
 // Item represents a task or section in the markdown file
 type Item struct {
-	Type     ItemType // Whether this is a section or task
-	Level    int      // Heading level (1-6) for sections, or indentation for tasks
-	Content  string   // The actual text content
-	Checked  *bool    // nil for sections, true/false for tasks
-	Children []Item   // Child items (for hierarchical structure)
+	Type       ItemType // Whether this is a section or task
+	Level      int      // Heading level (1-6) for sections, or indentation for tasks
+	Content    string   // The actual text content
+	Checked    *bool    // nil for sections, true/false for tasks
+	Children   []Item   // Child items (for hierarchical structure)
+	LineNumber int      // Line number in the original file (1-based)
 }
 
 // TaskManager handles loading, modifying, and saving markdown files
@@ -86,10 +87,11 @@ func (tm *TaskManager) RemoveItem(index int) error {
 // AddTask adds a new task to the list
 func (tm *TaskManager) AddTask(content string, afterIndex int) error {
 	newTask := Item{
-		Type:    TypeTask,
-		Level:   0, // Default to no indentation
-		Content: content,
-		Checked: func() *bool { b := false; return &b }(),
+		Type:       TypeTask,
+		Level:      0, // Default to no indentation
+		Content:    content,
+		Checked:    func() *bool { b := false; return &b }(),
+		LineNumber: 0, // Will be set to proper value when saved
 	}
 
 	if afterIndex == -1 {
@@ -116,10 +118,11 @@ func (tm *TaskManager) AddSection(content string, level int, afterIndex int) err
 	}
 
 	newSection := Item{
-		Type:    TypeSection,
-		Level:   level,
-		Content: content,
-		Checked: nil,
+		Type:       TypeSection,
+		Level:      level,
+		Content:    content,
+		Checked:    nil,
+		LineNumber: 0, // Will be set to proper value when saved
 	}
 
 	if afterIndex == -1 {
@@ -149,12 +152,14 @@ func parseMarkdownFile(filePath string) ([]Item, error) {
 
 	var items []Item
 	scanner := bufio.NewScanner(file)
+	lineNumber := 0
 
 	// Regex patterns for parsing
 	sectionRegex := regexp.MustCompile(`^(#{1,6})\s+(.+)$`)
 	taskRegex := regexp.MustCompile(`^(\s*)-\s+\[([x\s])\]\s+(.+)$`)
 
 	for scanner.Scan() {
+		lineNumber++
 		line := strings.TrimRight(scanner.Text(), " \t")
 
 		if line == "" {
@@ -166,10 +171,11 @@ func parseMarkdownFile(filePath string) ([]Item, error) {
 			level := len(matches[1])
 			content := matches[2]
 			items = append(items, Item{
-				Type:    TypeSection,
-				Level:   level,
-				Content: content,
-				Checked: nil,
+				Type:       TypeSection,
+				Level:      level,
+				Content:    content,
+				Checked:    nil,
+				LineNumber: lineNumber,
 			})
 			continue
 		}
@@ -180,10 +186,11 @@ func parseMarkdownFile(filePath string) ([]Item, error) {
 			checked := matches[2] == "x"
 			content := matches[3]
 			items = append(items, Item{
-				Type:    TypeTask,
-				Level:   indentation,
-				Content: content,
-				Checked: &checked,
+				Type:       TypeTask,
+				Level:      indentation,
+				Content:    content,
+				Checked:    &checked,
+				LineNumber: lineNumber,
 			})
 			continue
 		}
@@ -558,11 +565,23 @@ func handleEdit(filePath string, args []string) {
 		fmt.Printf("Error: invalid ID '%s'\n", args[0])
 		os.Exit(1)
 	}
+	index := id - 1 // Convert to 0-based
 
-	// For simplicity, we'll find the line number by counting items
-	// This is a basic implementation - in a more sophisticated version,
-	// we would store line numbers during parsing
-	lineNumber := id // Approximate line number (good enough for most cases)
+	// Load items to get the actual line number
+	tm := &TaskManager{FilePath: filePath}
+	if err := tm.Load(); err != nil {
+		fmt.Printf("Error loading file: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get the item to find its line number
+	item, err := tm.GetItem(index)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	lineNumber := item.LineNumber
 
 	// Get editor from environment, default to vi
 	editor := os.Getenv("EDITOR")
