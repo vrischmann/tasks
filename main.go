@@ -693,6 +693,8 @@ func handleRemove(filePath string, args []string) {
 		os.Exit(1)
 	}
 
+	// Store the item details before removal to avoid pointer issues
+	itemContent := item.Content
 	itemType := "task"
 	if item.Type == TypeSection {
 		itemType = "section"
@@ -710,7 +712,7 @@ func handleRemove(filePath string, args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Removed %s %d: %s\n", itemType, id, item.Content)
+	fmt.Printf("Removed %s %d: %s\n", itemType, id, itemContent)
 }
 
 func handleEdit(filePath string, args []string) {
