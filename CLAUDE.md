@@ -31,11 +31,11 @@ go build && ./tasks --file demo.md ls  # Quick test
 
 ## Application Architecture
 
-### Core Components (Single-file architecture, ~600 lines)
+### Core Components (Single-file architecture, ~840 lines)
 
 - **Module**: `dev.rischmann.fr/tasks`
 - **Go Version**: 1.24.5
-- **Dependencies**: Standard library only (no external dependencies)
+- **Dependencies**: Minimal external dependencies (golang.org/x/term for terminal support, testify for testing)
 
 ### Key Components
 - `ItemType` enum - Distinguishes between sections and tasks

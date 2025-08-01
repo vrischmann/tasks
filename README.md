@@ -246,19 +246,22 @@ gh issue list --json number,title | \
 tasks/
 ├── main.go           # Main application (~600 lines, single file)
 ├── main_test.go      # Comprehensive test suite
-├── go.mod            # Go module (standard library only)
+├── go.mod            # Go module with minimal dependencies
 ├── go.sum            # Go module checksums
 ├── demo.md           # Example markdown file
 ├── README.md         # This file
 ├── CLAUDE.md         # Developer documentation
-└── PLAN.md           # Implementation plan
+├── TODO.md           # Project todo list
+├── AGENTS.md         # Agent documentation
+├── LICENSE           # MIT license
+└── docs/             # Documentation directory
 ```
 
 ## Development
 
 ### Requirements
 - Go 1.24.5+
-- No external dependencies (uses standard library only)
+- Minimal external dependencies (golang.org/x/term for terminal support, testify for testing)
 
 ### Building
 ```bash
