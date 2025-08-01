@@ -1,4 +1,5 @@
 # Features
+
 - [ ] Keep track of the last files opened (would require a database)
 - [ ] Keep track of the collapsed/expanded state
 - [ ] AI integration ? maybe
@@ -8,14 +9,16 @@
 - [ ] Add metadata to the line
 
 # Editing
+
 - [x] Allow navigating in the input field (left, right, ctrl+a, ctrl+e)
 - [ ] Allow multi line items
-- [ ] Add vim mode ?
 
 # Misc
+
 - [x] Add a flag to disable the banner
 - [x] The banner does not show up anymore even without the no-banner flag
 - [x] Add scrolling support
 
 # Development
+
 - [x] Add test coverage support in Just
