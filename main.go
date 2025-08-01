@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"golang.org/x/term"
 	"os"
 	"os/exec"
 	"regexp"
@@ -365,23 +366,42 @@ func saveToFile(filePath string, items []Item) error {
 	}
 	defer file.Close()
 
-	for _, item := range items {
+	for i, item := range items {
 		var line string
 		if item.Type == TypeSection {
+			// Add empty line before section header (except for first item)
+			if i > 0 {
+				if _, err := fmt.Fprintln(file, ""); err != nil {
+					return fmt.Errorf("failed to write empty line: %w", err)
+				}
+			}
+
 			// Format section header
 			line = strings.Repeat("#", item.Level) + " " + item.Content
+
+			// Write the section header
+			if _, err := fmt.Fprintln(file, line); err != nil {
+				return fmt.Errorf("failed to write line: %w", err)
+			}
+
+			// Add empty line after section header (if not last item and next item is not a section)
+			if i < len(items)-1 && items[i+1].Type != TypeSection {
+				if _, err := fmt.Fprintln(file, ""); err != nil {
+					return fmt.Errorf("failed to write empty line: %w", err)
+				}
+			}
 		} else {
-			// Format task item
-			indentation := strings.Repeat(" ", item.Level)
+			// Format task item without any indentation
 			checkBox := "[ ]"
 			if item.Checked != nil && *item.Checked {
 				checkBox = "[x]"
 			}
-			line = indentation + "- " + checkBox + " " + item.Content
-		}
+			line = "- " + checkBox + " " + item.Content
 
-		if _, err := fmt.Fprintln(file, line); err != nil {
-			return fmt.Errorf("failed to write line: %w", err)
+			// Write the task
+			if _, err := fmt.Fprintln(file, line); err != nil {
+				return fmt.Errorf("failed to write line: %w", err)
+			}
 		}
 	}
 
@@ -410,6 +430,11 @@ func getVersion() string {
 	}
 
 	return version
+}
+
+// isTerminal checks if stdout is connected to a terminal
+func isTerminal() bool {
+	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
 func main() {
@@ -484,20 +509,27 @@ func handleList(filePath string) {
 		id := i + 1
 
 		if item.Type == TypeSection {
-			// Format section header with appropriate indentation
-			indent := ""
-			if item.Level > 1 {
-				indent = strings.Repeat("  ", item.Level-1)
+			// Format section header without any indentation
+			idStr := fmt.Sprintf("%-5d", id)
+			if isTerminal() {
+				// Color the ID yellow in interactive terminals
+				fmt.Printf("\033[33m%s\033[0m %s %s\n", idStr, strings.Repeat("#", item.Level), item.Content)
+			} else {
+				fmt.Printf("%s %s %s\n", idStr, strings.Repeat("#", item.Level), item.Content)
 			}
-			fmt.Printf("%d   %s%s %s\n", id, indent, strings.Repeat("#", item.Level), item.Content)
 		} else {
-			// Format task item
-			indent := strings.Repeat("  ", item.Level/2) // Convert spaces to visual indentation
+			// Format task item without any indentation
 			checkBox := "[ ]"
 			if item.Checked != nil && *item.Checked {
 				checkBox = "[x]"
 			}
-			fmt.Printf("%d   %s- %s %s\n", id, indent, checkBox, item.Content)
+			idStr := fmt.Sprintf("%-5d", id)
+			if isTerminal() {
+				// Color the ID yellow in interactive terminals
+				fmt.Printf("\033[33m%s\033[0m - %s %s\n", idStr, checkBox, item.Content)
+			} else {
+				fmt.Printf("%s - %s %s\n", idStr, checkBox, item.Content)
+			}
 		}
 	}
 }
@@ -782,20 +814,27 @@ func handleSearch(filePath string, args []string) {
 		item := result.Item
 
 		if item.Type == TypeSection {
-			// Format section header with appropriate indentation
-			indent := ""
-			if item.Level > 1 {
-				indent = strings.Repeat("  ", item.Level-1)
+			// Format section header without any indentation
+			idStr := fmt.Sprintf("%-5d", id)
+			if isTerminal() {
+				// Color the ID yellow in interactive terminals
+				fmt.Printf("\033[33m%s\033[0m %s %s\n", idStr, strings.Repeat("#", item.Level), item.Content)
+			} else {
+				fmt.Printf("%s %s %s\n", idStr, strings.Repeat("#", item.Level), item.Content)
 			}
-			fmt.Printf("%d   %s%s %s\n", id, indent, strings.Repeat("#", item.Level), item.Content)
 		} else {
-			// Format task item
-			indent := strings.Repeat("  ", item.Level/2) // Convert spaces to visual indentation
+			// Format task item without any indentation
 			checkBox := "[ ]"
 			if item.Checked != nil && *item.Checked {
 				checkBox = "[x]"
 			}
-			fmt.Printf("%d   %s- %s %s\n", id, indent, checkBox, item.Content)
+			idStr := fmt.Sprintf("%-5d", id)
+			if isTerminal() {
+				// Color the ID yellow in interactive terminals
+				fmt.Printf("\033[33m%s\033[0m - %s %s\n", idStr, checkBox, item.Content)
+			} else {
+				fmt.Printf("%s - %s %s\n", idStr, checkBox, item.Content)
+			}
 		}
 	}
 }
