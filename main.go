@@ -64,11 +64,11 @@ func (tm *TaskManager) ToggleTask(index int, completed bool) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if item.Type != TypeTask {
 		return fmt.Errorf("item at index %d is not a task", index)
 	}
-	
+
 	*item.Checked = completed
 	return nil
 }
@@ -78,7 +78,7 @@ func (tm *TaskManager) RemoveItem(index int) error {
 	if index < 0 || index >= len(tm.Items) {
 		return fmt.Errorf("invalid item index: %d", index)
 	}
-	
+
 	tm.Items = deleteItem(tm.Items, index)
 	return nil
 }
@@ -91,7 +91,7 @@ func (tm *TaskManager) AddTask(content string, afterIndex int) error {
 		Content: content,
 		Checked: func() *bool { b := false; return &b }(),
 	}
-	
+
 	if afterIndex == -1 {
 		// Add at the end
 		tm.Items = append(tm.Items, newTask)
@@ -100,12 +100,12 @@ func (tm *TaskManager) AddTask(content string, afterIndex int) error {
 		if afterIndex < 0 || afterIndex >= len(tm.Items) {
 			return fmt.Errorf("invalid after index: %d", afterIndex)
 		}
-		
+
 		// Insert at afterIndex + 1
 		insertPos := afterIndex + 1
 		tm.Items = append(tm.Items[:insertPos], append([]Item{newTask}, tm.Items[insertPos:]...)...)
 	}
-	
+
 	return nil
 }
 
@@ -114,14 +114,14 @@ func (tm *TaskManager) AddSection(content string, level int, afterIndex int) err
 	if level < 1 || level > 6 {
 		return fmt.Errorf("invalid section level: %d (must be 1-6)", level)
 	}
-	
+
 	newSection := Item{
 		Type:    TypeSection,
 		Level:   level,
 		Content: content,
 		Checked: nil,
 	}
-	
+
 	if afterIndex == -1 {
 		// Add at the end
 		tm.Items = append(tm.Items, newSection)
@@ -130,12 +130,12 @@ func (tm *TaskManager) AddSection(content string, level int, afterIndex int) err
 		if afterIndex < 0 || afterIndex >= len(tm.Items) {
 			return fmt.Errorf("invalid after index: %d", afterIndex)
 		}
-		
+
 		// Insert at afterIndex + 1
 		insertPos := afterIndex + 1
 		tm.Items = append(tm.Items[:insertPos], append([]Item{newSection}, tm.Items[insertPos:]...)...)
 	}
-	
+
 	return nil
 }
 
@@ -156,7 +156,7 @@ func parseMarkdownFile(filePath string) ([]Item, error) {
 
 	for scanner.Scan() {
 		line := strings.TrimRight(scanner.Text(), " \t")
-		
+
 		if line == "" {
 			continue
 		}
@@ -203,7 +203,7 @@ func deleteItem(items []Item, index int) []Item {
 	}
 
 	currentItem := items[index]
-	
+
 	// If it's a section, we need to remove all child items too
 	if currentItem.Type == TypeSection {
 		// Find the range of items to delete (current item + all children)
@@ -246,7 +246,7 @@ func saveToFile(filePath string, items []Item) error {
 			}
 			line = indentation + "- " + checkBox + " " + item.Content
 		}
-		
+
 		if _, err := fmt.Fprintln(file, line); err != nil {
 			return fmt.Errorf("failed to write line: %w", err)
 		}
@@ -346,7 +346,7 @@ func handleList(filePath string) {
 	for i, item := range items {
 		// 1-based indexing for user-facing IDs
 		id := i + 1
-		
+
 		if item.Type == TypeSection {
 			// Format section header with appropriate indentation
 			indent := ""
@@ -373,14 +373,14 @@ func handleAdd(filePath string, args []string) {
 		fmt.Println("       tasks add --section <level> <text>")
 		os.Exit(1)
 	}
-	
+
 	// Create TaskManager and load items
 	tm := &TaskManager{FilePath: filePath}
 	if err := tm.Load(); err != nil {
 		fmt.Printf("Error loading file: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Check if this is a section creation
 	if args[0] == "--section" {
 		if len(args) < 3 {
@@ -388,33 +388,33 @@ func handleAdd(filePath string, args []string) {
 			fmt.Println("Usage: tasks add --section <level> <text>")
 			os.Exit(1)
 		}
-		
+
 		level, err := strconv.Atoi(args[1])
 		if err != nil {
 			fmt.Printf("Error: invalid section level '%s'\n", args[1])
 			os.Exit(1)
 		}
-		
+
 		content := strings.Join(args[2:], " ")
-		
+
 		if err := tm.AddSection(content, level, -1); err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		fmt.Printf("Added section: %s %s\n", strings.Repeat("#", level), content)
 	} else {
 		// Regular task addition
 		content := strings.Join(args, " ")
-		
+
 		if err := tm.AddTask(content, -1); err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		fmt.Printf("Added task: %s\n", content)
 	}
-	
+
 	// Save the changes
 	if err := tm.Save(); err != nil {
 		fmt.Printf("Error saving file: %v\n", err)
@@ -428,7 +428,7 @@ func handleDone(filePath string, args []string) {
 		fmt.Println("Usage: tasks done <id>")
 		os.Exit(1)
 	}
-	
+
 	// Parse the ID (convert from 1-based to 0-based)
 	var id int
 	if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
@@ -436,26 +436,26 @@ func handleDone(filePath string, args []string) {
 		os.Exit(1)
 	}
 	index := id - 1 // Convert to 0-based
-	
+
 	// Create TaskManager and load items
 	tm := &TaskManager{FilePath: filePath}
 	if err := tm.Load(); err != nil {
 		fmt.Printf("Error loading file: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Toggle the task to completed
 	if err := tm.ToggleTask(index, true); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Save the changes
 	if err := tm.Save(); err != nil {
 		fmt.Printf("Error saving file: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	fmt.Printf("Marked task %d as completed\n", id)
 }
 
@@ -465,7 +465,7 @@ func handleUndo(filePath string, args []string) {
 		fmt.Println("Usage: tasks undo <id>")
 		os.Exit(1)
 	}
-	
+
 	// Parse the ID (convert from 1-based to 0-based)
 	var id int
 	if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
@@ -473,26 +473,26 @@ func handleUndo(filePath string, args []string) {
 		os.Exit(1)
 	}
 	index := id - 1 // Convert to 0-based
-	
+
 	// Create TaskManager and load items
 	tm := &TaskManager{FilePath: filePath}
 	if err := tm.Load(); err != nil {
 		fmt.Printf("Error loading file: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Toggle the task to incomplete
 	if err := tm.ToggleTask(index, false); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Save the changes
 	if err := tm.Save(); err != nil {
 		fmt.Printf("Error saving file: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	fmt.Printf("Marked task %d as incomplete\n", id)
 }
 
@@ -502,7 +502,7 @@ func handleRemove(filePath string, args []string) {
 		fmt.Println("Usage: tasks rm <id>")
 		os.Exit(1)
 	}
-	
+
 	// Parse the ID (convert from 1-based to 0-based)
 	var id int
 	if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
@@ -510,38 +510,38 @@ func handleRemove(filePath string, args []string) {
 		os.Exit(1)
 	}
 	index := id - 1 // Convert to 0-based
-	
+
 	// Create TaskManager and load items
 	tm := &TaskManager{FilePath: filePath}
 	if err := tm.Load(); err != nil {
 		fmt.Printf("Error loading file: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Get the item before removing it (for confirmation message)
 	item, err := tm.GetItem(index)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	itemType := "task"
 	if item.Type == TypeSection {
 		itemType = "section"
 	}
-	
+
 	// Remove the item
 	if err := tm.RemoveItem(index); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Save the changes
 	if err := tm.Save(); err != nil {
 		fmt.Printf("Error saving file: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	fmt.Printf("Removed %s %d: %s\n", itemType, id, item.Content)
 }
 
@@ -551,28 +551,28 @@ func handleEdit(filePath string, args []string) {
 		fmt.Println("Usage: tasks edit <id>")
 		os.Exit(1)
 	}
-	
+
 	// Parse the ID (convert from 1-based to 0-based)
 	var id int
 	if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
 		fmt.Printf("Error: invalid ID '%s'\n", args[0])
 		os.Exit(1)
 	}
-	
+
 	// For simplicity, we'll find the line number by counting items
 	// This is a basic implementation - in a more sophisticated version,
 	// we would store line numbers during parsing
 	lineNumber := id // Approximate line number (good enough for most cases)
-	
+
 	// Get editor from environment, default to vi
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "vi"
 	}
-	
+
 	// Construct the command to open the file at the specific line
 	var cmd *exec.Cmd
-	
+
 	// Different editors have different syntax for opening at a specific line
 	switch {
 	case strings.Contains(editor, "vim") || strings.Contains(editor, "vi"):
@@ -587,17 +587,17 @@ func handleEdit(filePath string, args []string) {
 		// Fall back to just opening the file
 		cmd = exec.Command(editor, filePath)
 	}
-	
+
 	// Inherit stdin, stdout, and stderr so the editor works properly
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	// Run the editor
 	if err := cmd.Run(); err != nil {
 		fmt.Printf("Error running editor: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	fmt.Printf("Edited item %d with %s\n", id, editor)
 }
