@@ -525,9 +525,253 @@ More text here.
 
 	// Verify that line numbers are tracked correctly
 	require.Equal(t, 1, items[0].LineNumber, "Main Section should be on line 1")
-	require.Equal(t, 5, items[1].LineNumber, "Subsection should be on line 5") 
+	require.Equal(t, 5, items[1].LineNumber, "Subsection should be on line 5")
 	require.Equal(t, 7, items[2].LineNumber, "First task should be on line 7")
 	require.Equal(t, 8, items[3].LineNumber, "Second task should be on line 8")
 	require.Equal(t, 12, items[4].LineNumber, "Deep section should be on line 12")
 	require.Equal(t, 13, items[5].LineNumber, "Deep task should be on line 13")
 }
+
+// Fuzzy Search Tests
+
+func TestFuzzyMatch(t *testing.T) {
+	t.Run("exact matches", func(t *testing.T) {
+		t.Run("identical strings", func(t *testing.T) {
+			score := fuzzyMatch("test", "test")
+			require.Equal(t, 1.0, score, "Exact match should return score of 1.0")
+		})
+
+		t.Run("case insensitive", func(t *testing.T) {
+			testCases := []struct {
+				pattern, text string
+			}{
+				{"TEST", "test"},
+				{"test", "TEST"},
+				{"TeSt", "tEsT"},
+			}
+
+			for _, tc := range testCases {
+				score := fuzzyMatch(tc.pattern, tc.text)
+				require.Equal(t, 1.0, score, "Case insensitive exact match should return 1.0 for %s vs %s", tc.pattern, tc.text)
+			}
+		})
+	})
+
+	t.Run("substring matches", func(t *testing.T) {
+		t.Run("exact substring", func(t *testing.T) {
+			score := fuzzyMatch("test", "this is a test string")
+			require.Equal(t, 0.8, score, "Exact substring match should return 0.8")
+		})
+
+		t.Run("case insensitive substring", func(t *testing.T) {
+			testCases := []struct {
+				pattern, text string
+			}{
+				{"TEST", "this is a test string"},
+				{"test", "this is a TEST string"},
+			}
+
+			for _, tc := range testCases {
+				score := fuzzyMatch(tc.pattern, tc.text)
+				require.Equal(t, 0.8, score, "Case insensitive substring match should return 0.8 for %s vs %s", tc.pattern, tc.text)
+			}
+		})
+	})
+
+	t.Run("fuzzy character matches", func(t *testing.T) {
+		t.Run("sequential characters", func(t *testing.T) {
+			score := fuzzyMatch("btn", "button")
+			require.GreaterOrEqual(t, score, 0.3, "Fuzzy match should return meaningful score")
+			require.Less(t, score, 0.8, "Fuzzy match should be less than substring match")
+		})
+
+		t.Run("partial character match", func(t *testing.T) {
+			score := fuzzyMatch("crate", "create")
+			require.GreaterOrEqual(t, score, 0.3, "Partial character match should return meaningful score")
+		})
+
+		t.Run("order matters", func(t *testing.T) {
+			score1 := fuzzyMatch("abc", "aabbcc") // in order
+			score2 := fuzzyMatch("abc", "ccbbaa") // reverse order
+			
+			require.GreaterOrEqual(t, score1, 0.3, "In-order characters should match")
+			require.Equal(t, 0.0, score2, "Out-of-order characters should not match")
+		})
+
+		t.Run("long text", func(t *testing.T) {
+			longText := "this is a very long text string with many words in it for testing purposes"
+			score := fuzzyMatch("test", longText)
+			require.Greater(t, score, 0.3, "Should find pattern in long text")
+		})
+	})
+
+	t.Run("no matches", func(t *testing.T) {
+		t.Run("completely different", func(t *testing.T) {
+			score := fuzzyMatch("xyz", "button")
+			require.Equal(t, 0.0, score, "No character matches should return 0.0")
+		})
+
+		t.Run("incomplete pattern", func(t *testing.T) {
+			score := fuzzyMatch("buttoncomponent", "button")
+			require.Equal(t, 0.0, score, "Incomplete match (missing pattern chars) should return 0.0")
+		})
+	})
+
+	t.Run("empty strings", func(t *testing.T) {
+		testCases := []struct {
+			name          string
+			pattern, text string
+			expected      float64
+		}{
+			{"empty pattern with text", "", "test", 0.0},
+			{"pattern with empty text", "test", "", 0.0},
+			{"both empty", "", "", 1.0},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				score := fuzzyMatch(tc.pattern, tc.text)
+				require.Equal(t, tc.expected, score)
+			})
+		}
+	})
+}
+
+func TestSearchItems(t *testing.T) {
+	t.Run("edge cases", func(t *testing.T) {
+		t.Run("empty items", func(t *testing.T) {
+			var items []Item
+			results := searchItems(items, []string{"test"})
+			require.Empty(t, results, "Empty items should return no results")
+		})
+
+		t.Run("empty query", func(t *testing.T) {
+			items := []Item{
+				{Type: TypeTask, Content: "Test task", Checked: func() *bool { b := false; return &b }()},
+			}
+			results := searchItems(items, []string{})
+			require.Empty(t, results, "Empty query should return no results")
+		})
+
+		t.Run("minimum score threshold", func(t *testing.T) {
+			items := []Item{
+				{Type: TypeTask, Content: "completely unrelated content xyz", Checked: func() *bool { b := false; return &b }()},
+				{Type: TypeTask, Content: "another unrelated item abc", Checked: func() *bool { b := false; return &b }()},
+			}
+
+			results := searchItems(items, []string{"searchterm"})
+			require.Empty(t, results, "Should not return results below minimum score threshold")
+		})
+	})
+
+	t.Run("single matches", func(t *testing.T) {
+		items := []Item{
+			{Type: TypeTask, Content: "Setup React project", Checked: func() *bool { b := false; return &b }()},
+			{Type: TypeTask, Content: "Create components", Checked: func() *bool { b := false; return &b }()},
+			{Type: TypeSection, Level: 1, Content: "Frontend", Checked: nil},
+		}
+
+		results := searchItems(items, []string{"react"})
+		require.Len(t, results, 1, "Should find one match")
+		require.Equal(t, "Setup React project", results[0].Item.Content)
+		require.Equal(t, 0, results[0].Index)
+		require.Greater(t, results[0].Score, 0.3)
+	})
+
+	t.Run("multiple matches", func(t *testing.T) {
+		t.Run("same search term in different items", func(t *testing.T) {
+			items := []Item{
+				{Type: TypeTask, Content: "Create form component", Checked: func() *bool { b := false; return &b }()},
+				{Type: TypeTask, Content: "Login form", Checked: func() *bool { b := false; return &b }()},
+				{Type: TypeTask, Content: "Registration form", Checked: func() *bool { b := false; return &b }()},
+				{Type: TypeTask, Content: "Button component", Checked: func() *bool { b := false; return &b }()},
+			}
+
+			results := searchItems(items, []string{"form"})
+			require.Len(t, results, 3, "Should find three form matches")
+
+			// Results should be sorted by score (highest first), but some may have equal scores
+			if len(results) >= 2 {
+				require.GreaterOrEqual(t, results[0].Score, results[1].Score, "Results should be ordered by score")
+			}
+			if len(results) >= 3 {
+				require.GreaterOrEqual(t, results[1].Score, results[2].Score, "Results should be ordered by score")
+			}
+		})
+
+		t.Run("score ordering", func(t *testing.T) {
+			items := []Item{
+				{Type: TypeTask, Content: "button", Checked: func() *bool { b := false; return &b }()},                  // exact match
+				{Type: TypeTask, Content: "create button component", Checked: func() *bool { b := false; return &b }()}, // substring match
+				{Type: TypeTask, Content: "big unique task name", Checked: func() *bool { b := false; return &b }()},    // fuzzy match
+			}
+
+			results := searchItems(items, []string{"button"})
+			require.GreaterOrEqual(t, len(results), 2, "Should find multiple matches")
+
+			// Exact match should score highest, substring match should be next
+			if len(results) >= 2 {
+				require.Greater(t, results[0].Score, results[1].Score, "Results should be ordered by score")
+				require.Equal(t, "button", results[0].Item.Content, "Exact match should be first")
+			}
+		})
+	})
+
+	t.Run("query variations", func(t *testing.T) {
+		t.Run("multiple query terms", func(t *testing.T) {
+			items := []Item{
+				{Type: TypeTask, Content: "Setup authentication system", Checked: func() *bool { b := false; return &b }()},
+				{Type: TypeTask, Content: "Password reset functionality", Checked: func() *bool { b := false; return &b }()},
+				{Type: TypeTask, Content: "User login form", Checked: func() *bool { b := false; return &b }()},
+			}
+
+			results := searchItems(items, []string{"auth", "password"})
+			require.Len(t, results, 2, "Should find matches for multi-term query")
+		})
+
+		t.Run("case insensitive", func(t *testing.T) {
+			items := []Item{
+				{Type: TypeTask, Content: "Setup React Project", Checked: func() *bool { b := false; return &b }()},
+				{Type: TypeTask, Content: "create components", Checked: func() *bool { b := false; return &b }()},
+			}
+
+			testCases := []string{"REACT", "react", "React"}
+			for _, query := range testCases {
+				results := searchItems(items, []string{query})
+				require.Len(t, results, 1, "Query %s should find match", query)
+				require.Equal(t, "Setup React Project", results[0].Item.Content)
+			}
+		})
+	})
+
+	t.Run("item types", func(t *testing.T) {
+		t.Run("sections and tasks", func(t *testing.T) {
+			items := []Item{
+				{Type: TypeSection, Level: 1, Content: "Authentication", Checked: nil},
+				{Type: TypeTask, Content: "JWT implementation", Checked: func() *bool { b := false; return &b }()},
+				{Type: TypeTask, Content: "Password authentication", Checked: func() *bool { b := false; return &b }()},
+				{Type: TypeSection, Level: 2, Content: "UI Components", Checked: nil},
+			}
+
+			results := searchItems(items, []string{"auth"})
+			require.GreaterOrEqual(t, len(results), 2, "Should find matches in both sections and tasks")
+
+			// Should include both the section and the task
+			foundSection := false
+			foundTask := false
+			for _, result := range results {
+				if result.Item.Type == TypeSection && result.Item.Content == "Authentication" {
+					foundSection = true
+				}
+				if result.Item.Type == TypeTask && result.Item.Content == "Password authentication" {
+					foundTask = true
+				}
+			}
+			require.True(t, foundSection, "Should find section match")
+			require.True(t, foundTask, "Should find task match")
+		})
+	})
+}
+
+// Integration tests for handleSearch would require capturing output,
+// which is more complex. These unit tests cover the core functionality.

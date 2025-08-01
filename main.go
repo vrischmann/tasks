@@ -231,6 +231,132 @@ func deleteItem(items []Item, index int) []Item {
 	}
 }
 
+// fuzzyMatch performs case-insensitive fuzzy matching
+// Returns a score between 0 and 1, where 1 is a perfect match
+func fuzzyMatch(pattern, text string) float64 {
+	pattern = strings.ToLower(pattern)
+	text = strings.ToLower(text)
+	
+	// Handle empty strings
+	if len(pattern) == 0 && len(text) == 0 {
+		return 1.0
+	}
+	if len(pattern) == 0 || len(text) == 0 {
+		return 0.0
+	}
+	
+	if pattern == text {
+		return 1.0
+	}
+	
+	if strings.Contains(text, pattern) {
+		// Exact substring match gets high score
+		return 0.8
+	}
+	
+	// Character-by-character fuzzy matching
+	patternIdx := 0
+	matches := 0
+	
+	for _, char := range text {
+		if patternIdx < len(pattern) && char == rune(pattern[patternIdx]) {
+			matches++
+			patternIdx++
+		}
+	}
+	
+	// Must match all characters in the pattern to be considered a match
+	if matches < len(pattern) {
+		return 0.0
+	}
+	
+	// Score based on how tightly the characters are packed together
+	// and the length ratio between pattern and text
+	charMatchRatio := float64(matches) / float64(len(pattern))
+	lengthPenalty := float64(len(pattern)) / float64(len(text))
+	
+	// Calculate base score
+	score := charMatchRatio * lengthPenalty * 0.6
+	
+	// Add a small bonus to distinguish exact character order matches
+	if score > 0 {
+		score = score + 0.05
+	}
+	
+	// Only return a meaningful score if we have a decent match ratio
+	if score < 0.3 {
+		return 0.0
+	}
+	
+	return score
+}
+
+// SearchResult represents a search match with score
+type SearchResult struct {
+	Item  Item
+	Index int
+	Score float64
+}
+
+// searchItems performs fuzzy search across all items
+func searchItems(items []Item, queries []string) []SearchResult {
+	var results []SearchResult
+	
+	// Return empty if no queries provided
+	if len(queries) == 0 {
+		return results
+	}
+	
+	for i, item := range items {
+		totalScore := 0.0
+		matchCount := 0
+		
+		// Combine all query terms into one search pattern
+		searchPattern := strings.Join(queries, " ")
+		
+		// Search in item content
+		contentScore := fuzzyMatch(searchPattern, item.Content)
+		if contentScore > 0 {
+			totalScore += contentScore
+			matchCount++
+		}
+		
+		// Also try matching individual query terms
+		for _, query := range queries {
+			if strings.TrimSpace(query) == "" {
+				continue
+			}
+			queryScore := fuzzyMatch(query, item.Content)
+			if queryScore > contentScore {
+				totalScore = queryScore
+				matchCount = 1
+				break
+			}
+		}
+		
+		// Only include results with a minimum score
+		if totalScore > 0.3 {
+			avgScore := totalScore / float64(matchCount)
+			results = append(results, SearchResult{
+				Item:  item,
+				Index: i,
+				Score: avgScore,
+			})
+		}
+	}
+	
+	// Sort results by score (highest first)
+	for i := 0; i < len(results)-1; i++ {
+		for j := i + 1; j < len(results); j++ {
+			if results[i].Score < results[j].Score {
+				results[i], results[j] = results[j], results[i]
+			}
+		}
+	}
+	
+	return results
+}
+
 // saveToFile writes the items back to the markdown file
 func saveToFile(filePath string, items []Item) error {
 	file, err := os.Create(filePath)
@@ -319,6 +445,8 @@ func main() {
 		handleRemove(*filePath, cmdArgs)
 	case "edit":
 		handleEdit(*filePath, cmdArgs)
+	case "search":
+		handleSearch(*filePath, cmdArgs)
 	default:
 		fmt.Printf("Unknown command: %s\n", cmd)
 		printUsage()
@@ -337,6 +465,7 @@ func printUsage() {
 	fmt.Println("  undo <id>             Mark task as incomplete")
 	fmt.Println("  rm <id>               Remove task or section")
 	fmt.Println("  edit <id>             Edit task or section in $EDITOR")
+	fmt.Println("  search <term> [...]   Search tasks and sections with fuzzy matching")
 	fmt.Println("")
 	fmt.Println("Options:")
 	fmt.Println("  --file <path>         Specify markdown file (default: TODO.md)")
@@ -619,4 +748,54 @@ func handleEdit(filePath string, args []string) {
 	}
 
 	fmt.Printf("Edited item %d with %s\n", id, editor)
+}
+
+func handleSearch(filePath string, args []string) {
+	if len(args) < 1 {
+		fmt.Println("Error: search command requires at least one search term")
+		fmt.Println("Usage: tasks search <term1> [term2] [...]")
+		os.Exit(1)
+	}
+
+	// Load items from file
+	items, err := parseMarkdownFile(filePath)
+	if err != nil {
+		fmt.Printf("Error reading file: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Perform search
+	results := searchItems(items, args)
+
+	if len(results) == 0 {
+		fmt.Printf("No matches found for: %s\n", strings.Join(args, " "))
+		return
+	}
+
+	// Display results
+	fmt.Printf("Found %d match(es) for: %s\n", len(results), strings.Join(args, " "))
+	fmt.Println()
+
+	for _, result := range results {
+		// 1-based indexing for user-facing IDs
+		id := result.Index + 1
+		item := result.Item
+
+		if item.Type == TypeSection {
+			// Format section header with appropriate indentation
+			indent := ""
+			if item.Level > 1 {
+				indent = strings.Repeat("  ", item.Level-1)
+			}
+			fmt.Printf("%d   %s%s %s\n", id, indent, strings.Repeat("#", item.Level), item.Content)
+		} else {
+			// Format task item
+			indent := strings.Repeat("  ", item.Level/2) // Convert spaces to visual indentation
+			checkBox := "[ ]"
+			if item.Checked != nil && *item.Checked {
+				checkBox = "[x]"
+			}
+			fmt.Printf("%d   %s- %s %s\n", id, indent, checkBox, item.Content)
+		}
+	}
 }
