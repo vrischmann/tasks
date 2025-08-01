@@ -221,7 +221,7 @@ tasks --file daily.md ls | grep "\[ \]"
 ```bash
 # Set up project structure
 tasks --file project.md add --section 1 "Planning Phase"
-tasks --file project.md add --section 2 "Development"  
+tasks --file project.md add --section 2 "Development"
 tasks --file project.md add --section 2 "Testing"
 tasks --file project.md add --section 1 "Deployment"
 
@@ -283,29 +283,10 @@ go vet              # Static analysis
 
 This tool follows Unix philosophy:
 - **Do one thing well**: Manage markdown task lists
-- **Composable**: Output works with pipes and other tools  
+- **Composable**: Output works with pipes and other tools
 - **Stateless**: Each command is independent
 - **Text-based**: Works with standard markdown format
 - **Scriptable**: Suitable for automation and workflows
-
-## Migration from TUI Version
-
-If you're coming from the previous interactive TUI version:
-
-**Old (TUI):**
-```bash
-tasks demo.md    # Opens interactive interface
-# Navigate with j/k, space to toggle, etc.
-```
-
-**New (CLI):**
-```bash
-tasks --file demo.md ls              # List items
-tasks --file demo.md done 5          # Toggle completion
-tasks --file demo.md add "New task"  # Add items
-```
-
-The CLI version provides the same functionality but optimized for scripting and command-line workflows.
 
 ## Contributing
 
