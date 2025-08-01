@@ -1,6 +1,6 @@
 function tr --description "Remove task interactively"
     set file (test -n "$argv[1]"; and echo "$argv[1]"; or echo "TODO.md")
-    set task_line (tasks --file $file ls | fzf --prompt="Remove task: ")
+    set task_line (tasks --file $file ls | fzf --bind 'space:toggle' --prompt="Remove task: ")
     
     if test -n "$task_line"
         set task_id (echo $task_line | awk '{print $1}')
