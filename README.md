@@ -1,24 +1,18 @@
-# Tasks - Terminal Markdown Task Manager
+# Tasks - Composable CLI Markdown Task Manager
 
-A beautiful, interactive terminal application for managing tasks stored in markdown files. Built with Go, Bubble Tea, and lipgloss for a modern TUI experience.
-
-Yes, this has been vibe coded.
-
-![Tasks UI](docs/screenshots/tasks.png)
+A stateless, Unix-friendly command-line tool for managing tasks stored in markdown files. Built with Go for composability, scripting, and integration with shell workflows.
 
 ## Features
 
-- ✨ **Interactive Terminal UI** - Navigate with Vim-style keys including page navigation
+- 🚀 **Stateless CLI** - Each command operates independently, perfect for scripting
 - 📋 **Markdown Integration** - Works with standard markdown task lists
 - 🌳 **Hierarchical Structure** - Support for nested sections and tasks
-- 🎨 **Beautiful Styling** - Modern colors, typography, and consistent highlighting
-- ⚡ **Live Editing** - Create and edit tasks and sections in-place
-- 🔄 **Task Management** - Toggle completion, move tasks, delete items, collapse sections
-- 🎯 **Section Creation** - Quick section creation with h+1 to h+6 shortcuts
-- ✨ **Smart Highlighting** - Fixed-width highlighting that adapts to indentation
-- 🗂️ **Global Section Control** - Collapse/expand all sections at once
+- 🔧 **Composable Output** - Clean, parsable output suitable for piping
+- ⚡ **Task Management** - Add, complete, edit, and remove tasks and sections
+- 📝 **Editor Integration** - Edit items directly in your preferred editor ($EDITOR)
+- 🗑️ **Smart Deletion** - Remove sections with all their children
 - 🌍 **Unicode Support** - Full support for international characters and emojis
-- 📁 **Empty File Handling** - Create tasks and sections in empty markdown files
+- 📁 **Empty File Support** - Works with empty markdown files
 
 ## Installation
 
@@ -39,25 +33,109 @@ go build
 
 ## Quick Start
 
-1. **Run with a markdown file:**
-   ```bash
-   tasks demo.md
-   ```
+### Basic Commands
+```bash
+# List all tasks and sections
+tasks --file todo.md ls
 
-2. **Try the included examples:**
-   ```bash
-   tasks demo.md    # Complex hierarchical example
-   tasks test.md    # Simple test file
-   ```
+# Add a new task
+tasks --file todo.md add "Review documentation"
 
-3. **Use with your own files:**
-   ```bash
-   tasks path/to/your/todo.md
-   ```
+# Add a new section
+tasks --file todo.md add --section 2 "Development Phase"
+
+# Mark task 5 as completed
+tasks --file todo.md done 5
+
+# Mark task 3 as incomplete
+tasks --file todo.md undo 3
+
+# Edit task 7 in your editor
+tasks --file todo.md edit 7
+
+# Remove task 4
+tasks --file todo.md rm 4
+```
+
+### Try with Demo File
+```bash
+# Build and test with included demo
+go build
+./tasks --file demo.md ls
+./tasks --file demo.md add "Try this new CLI tool"
+```
+
+## CLI Reference
+
+### Usage
+```bash
+tasks [--file <path>] <command> [args]
+```
+
+### Global Options
+- `--file <path>` - Specify markdown file (default: TODO.md)
+- `--version`, `-v` - Show version information
+
+### Commands
+
+#### `ls` - List Items
+Lists all tasks and sections with 1-based line numbers.
+```bash
+tasks --file todo.md ls
+```
+
+Example output:
+```
+1   # Project Tasks
+2     ## Frontend
+3   - [x] Setup React project
+4   - [ ] Create components
+5     ## Backend
+6   - [ ] API design
+```
+
+#### `add` - Add Items
+Add tasks or sections to the file.
+
+**Add a task:**
+```bash
+tasks --file todo.md add "New task description"
+```
+
+**Add a section:**
+```bash
+tasks --file todo.md add --section 1 "Main Section"
+tasks --file todo.md add --section 2 "Subsection"
+```
+
+#### `done` / `undo` - Toggle Completion
+Mark tasks as completed or incomplete.
+```bash
+tasks --file todo.md done 3    # Mark task 3 as completed
+tasks --file todo.md undo 3    # Mark task 3 as incomplete
+```
+
+#### `rm` - Remove Items
+Remove tasks or sections. When removing sections, all child items are also removed.
+```bash
+tasks --file todo.md rm 5      # Remove item 5
+```
+
+#### `edit` - Edit in Editor
+Open the specified item in your preferred editor ($EDITOR).
+```bash
+tasks --file todo.md edit 2    # Edit item 2 in $EDITOR
+```
+
+Supports line positioning for:
+- vim/vi (`+line`)
+- nano (`+line`)
+- emacs (`+line`)
+- VS Code (`--goto file:line`)
 
 ## Supported Markdown Format
 
-The application works with standard markdown task lists:
+The tool works with standard markdown task lists:
 
 ```markdown
 # Project Tasks
@@ -76,133 +154,111 @@ The application works with standard markdown task lists:
 - [ ] Database setup
 ```
 
-## Controls
+## Scripting and Integration
 
-### Navigation
-| Key | Action |
-|-----|--------|
-| `j` / `↓` | Move down |
-| `k` / `↑` | Move up |
-| `Ctrl+F` | Page forward (down) |
-| `Ctrl+B` | Page backward (up) |
-| `q` | Quit application |
+### Shell Integration
+```bash
+# Count incomplete tasks
+tasks --file todo.md ls | grep -c "\[ \]"
 
-### Task Management
-| Key | Action |
-|-----|--------|
-| `space` | Toggle task completion (☒/☐) |
-| `n` | Create new task |
-| `e` | Edit current task or section |
-| `d` | Delete current item (tasks or sections with all contents) |
-| `Alt+j` / `Alt+↓` | Move item down |
-| `Alt+k` / `Alt+↑` | Move item up |
+# List only incomplete tasks
+tasks --file todo.md ls | grep "\[ \]"
 
-### Section Management
-| Key | Action |
-|-----|--------|
-| `h+1` | Create new h1 section (#) |
-| `h+2` | Create new h2 section (##) |
-| `h+3` | Create new h3 section (###) |
-| `h+4` | Create new h4 section (####) |
-| `h+5` | Create new h5 section (#####) |
-| `h+6` | Create new h6 section (######) |
+# Get task IDs for incomplete tasks
+tasks --file todo.md ls | awk '/\[ \]/ {print $1}'
+```
 
-### Section Control
-| Key | Action |
-|-----|--------|
-| `enter` | Toggle section expand/collapse |
-| `←` | Collapse current section |
-| `→` | Expand current section |
-| `-` | Collapse all sections |
-| `+` | Expand all sections |
+### fzf Integration
+```bash
+# Interactive task selection
+TASK_ID=$(tasks --file todo.md ls | fzf | awk '{print $1}')
+tasks --file todo.md done $TASK_ID
+```
 
-### File Operations
-| Key | Action |
-|-----|--------|
-| `s` | Save changes to file |
+### Fish Shell Functions
+```fish
+# Add to your ~/.config/fish/config.fish
+function td
+    tasks --file ~/todo.md $argv
+end
 
-### Input Mode
-When creating or editing tasks/sections:
+function tl
+    tasks --file ~/todo.md ls
+end
 
-| Key | Action |
-|-----|--------|
-| `Enter` | Save and exit input mode |
-| `Esc` / `Ctrl+C` | Cancel and exit input mode |
-| `Backspace` | Delete characters |
+function ta
+    tasks --file ~/todo.md add $argv
+end
+```
 
-**Note**: Full Unicode support - type accented characters (é, ñ, etc.) and emojis directly!
+### Vim Integration
+```vim
+" Add to your .vimrc
+command! -nargs=* TaskAdd execute '!tasks --file % add' shellescape(<q-args>)
+command! TaskList !tasks --file % ls
+```
 
 ## Examples
 
-### Creating a New Task
-1. Navigate to where you want to add a task
-2. Press `n`
-3. Type your task description
-4. Press `Enter` to save
+### Daily Workflow
+```bash
+# Morning: Check what needs to be done
+tasks --file daily.md ls
 
-### Creating a New Section
-1. Navigate to where you want to add a section
-2. Press `h` followed by a number (1-6) for the section level
-   - `h+1` creates `# Section Name`
-   - `h+2` creates `## Section Name`
-   - etc.
-3. Type your section name
-4. Press `Enter` to save
+# Add new tasks as they come up
+tasks --file daily.md add "Review pull request #123"
+tasks --file daily.md add "Call client about requirements"
 
-### Organizing with Sections
-- Use markdown headers (`#`, `##`, `###`) to create sections
-- Navigate to a section header and press `Enter` to collapse/expand
-- Use `←`/`→` for quick collapse/expand
-- Collapsed sections hide all their sub-content
+# Mark tasks as complete throughout the day
+tasks --file daily.md done 5
+tasks --file daily.md done 7
 
-### Editing Existing Items
-1. Navigate to the task or section you want to edit
-2. Press `e`
-3. Modify the text
-4. Press `Enter` to save changes
+# Evening: Review what's left
+tasks --file daily.md ls | grep "\[ \]"
+```
 
-### Moving Items
-- Use `Alt+j` or `Alt+↓` to move items down
-- Use `Alt+k` or `Alt+↑` to move items up
-- Works for both tasks and sections
+### Project Management
+```bash
+# Set up project structure
+tasks --file project.md add --section 1 "Planning Phase"
+tasks --file project.md add --section 2 "Development"  
+tasks --file project.md add --section 2 "Testing"
+tasks --file project.md add --section 1 "Deployment"
 
-### Deleting Items
-1. Navigate to the task or section you want to delete
-2. Press `d`
-3. The item is immediately deleted (no confirmation)
-   - For tasks: Only the task is deleted
-   - For sections: The section and ALL its contents (subsections, tasks) are deleted
+# Add tasks under sections
+tasks --file project.md add "Define requirements"
+tasks --file project.md add "Create wireframes"
+```
 
-### Global Section Management
-- Press `-` to collapse all sections at once (overview mode)
-- Press `+` to expand all sections at once (detailed mode)
-- Useful for quickly switching between high-level and detailed views
+### Git Integration
+```bash
+# Create tasks from git issues
+gh issue list --json number,title | \
+  jq -r '.[] | "Issue #\(.number): \(.title)"' | \
+  while read line; do
+    tasks --file issues.md add "$line"
+  done
+```
 
 ## File Structure
 
 ```
 tasks/
-├── main.go           # Main application code (867 lines)
-├── go.mod            # Go module definition
+├── main.go           # Main application (~600 lines, single file)
+├── main_test.go      # Comprehensive test suite
+├── go.mod            # Go module (standard library only)
 ├── go.sum            # Go module checksums
-├── Justfile          # Just build automation (optional)
-├── demo.md           # Complex example file
-├── test.md           # Simple example file
+├── demo.md           # Example markdown file
 ├── README.md         # This file
 ├── CLAUDE.md         # Developer documentation
-├── AGENTS.md         # Agent configuration
-└── LICENSE           # MIT License
+└── PLAN.md           # Implementation plan
 ```
 
 ## Development
 
 ### Requirements
 - Go 1.24.5+
-- Terminal with color support
-
-### Dependencies
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - Terminal UI framework
-- [lipgloss](https://github.com/charmbracelet/lipgloss) - Styling and layout
+- No external dependencies (uses standard library only)
 
 ### Building
 ```bash
@@ -210,29 +266,55 @@ go mod download
 go build
 ```
 
-### Using Just (alternative build tool)
-If you have [just](https://github.com/casey/just) installed:
-```bash
-just build          # Build the application
-just run            # Run with test.md
-just fmt             # Format code
-just check           # Run vet and staticcheck
-just watch-build     # Watch and rebuild on changes
-just watch-run       # Watch and run on changes
-```
-
 ### Testing
 ```bash
-go run main.go demo.md
+go test -v          # Run all tests
+go test -cover      # Run with coverage
 ```
+
+### Development Commands
+```bash
+go fmt ./...        # Format code
+go mod tidy         # Clean dependencies
+go vet              # Static analysis
+```
+
+## Design Philosophy
+
+This tool follows Unix philosophy:
+- **Do one thing well**: Manage markdown task lists
+- **Composable**: Output works with pipes and other tools  
+- **Stateless**: Each command is independent
+- **Text-based**: Works with standard markdown format
+- **Scriptable**: Suitable for automation and workflows
+
+## Migration from TUI Version
+
+If you're coming from the previous interactive TUI version:
+
+**Old (TUI):**
+```bash
+tasks demo.md    # Opens interactive interface
+# Navigate with j/k, space to toggle, etc.
+```
+
+**New (CLI):**
+```bash
+tasks --file demo.md ls              # List items
+tasks --file demo.md done 5          # Toggle completion
+tasks --file demo.md add "New task"  # Add items
+```
+
+The CLI version provides the same functionality but optimized for scripting and command-line workflows.
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+4. Add tests for new functionality
+5. Ensure all tests pass: `go test`
+6. Submit a pull request
 
 ## License
 

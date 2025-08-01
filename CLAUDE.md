@@ -4,91 +4,81 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a terminal-based markdown task manager built with Go, Bubble Tea, and lipgloss. It provides an interactive interface for viewing and managing tasks stored in markdown files with proper hierarchical structure.
+This is a stateless, composable CLI tool for managing markdown task lists built with Go. It provides Unix-friendly commands for manipulating tasks and sections stored in markdown files, designed for scripting and integration with other tools like `fzf` and shell workflows.
 
 ## Development Commands
 
 ### Build and Run
 ```bash
 go build
-./tasks <markdown-file>
+./tasks --file demo.md ls
 ```
 
-### Run directly
+### Run CLI commands directly
 ```bash
-go run main.go demo.md
+go run main.go --file demo.md ls
+go run main.go --file demo.md add "New task"
+go run main.go --file demo.md done 5
 ```
 
 ### Development workflow
 ```bash
-go fmt ./...           # Format code
-go mod tidy           # Clean up dependencies
-go build && ./tasks demo.md  # Quick test
+go fmt ./...                      # Format code
+go mod tidy                       # Clean up dependencies
+go test                          # Run all tests
+go build && ./tasks --file demo.md ls  # Quick test
 ```
 
 ## Application Architecture
 
-### Core Components (940 lines, single-file architecture)
+### Core Components (Single-file architecture, ~600 lines)
 
 - **Module**: `dev.rischmann.fr/tasks`
 - **Go Version**: 1.24.5
-- **Dependencies**: Bubble Tea (TUI), lipgloss (styling), unicode/utf8 (Unicode support)
+- **Dependencies**: Standard library only (no external dependencies)
 
-### Key Functions
-- `parseMarkdownFile()` - Regex-based markdown parser for sections/tasks
-- `initialModel()` - Initialize Bubble Tea model with file data
-- `updateVisibleItems()` - Manage section collapse/expand state
-- `adjustCursor()` - Ensure cursor stays within valid bounds
-- `calculateViewportHeight()` - Calculate available viewport space for content
-- `ensureCursorInViewport()` - Scroll viewport to keep cursor visible (preserves partial pages)
-- `clampScrollOffset()` - Ensure scroll position stays within valid bounds
-- `deleteItem()` - Delete tasks or sections with all contents
-- `collapseAll()` / `expandAll()` - Global section state management
-- `Update()` - Handle all keyboard input and state changes
-- `View()` - Render UI with lipgloss styling
-- `saveToFile()` - Write changes back to markdown with improved formatting
-- `renderBanner()` - Generate stylized ASCII art banner
-- `renderVisibleItems()` - Render the task/section tree
-- `renderInput()` - Render input field when editing (supports Unicode)
-- `renderFooter()` - Render status footer with file info
+### Key Components
+- `ItemType` enum - Distinguishes between sections and tasks
+- `Item` struct - Core data structure for tasks and sections
+- `TaskManager` struct - Centralized data handling with Load/Save operations
+- `parseMarkdownFile()` - Regex-based markdown parser
+- `saveToFile()` - Write items back to markdown with proper formatting
+- `deleteItem()` - Delete tasks or sections with hierarchical children removal
+- `getVersion()` - Build info and version reporting
 
+### Command Handlers
+- `handleList()` - List all items with 1-based indexing
+- `handleAdd()` - Add tasks or sections with positioning
+- `handleDone()/handleUndo()` - Toggle task completion status
+- `handleRemove()` - Remove items with section hierarchy support
+- `handleEdit()` - Open items in $EDITOR with line positioning
 
-## Features Implemented
+## CLI Interface
 
-### Navigation & Controls
-- `j`/`k` or `↑`/`↓` - Navigate between sections and tasks
-- `Ctrl+F` - Page forward (down) - vim-style page navigation
-- `Ctrl+B` - Page backward (up) - vim-style page navigation
-- `space` - Toggle task completion (☒/☐)
-- `enter` - Toggle section expand/collapse
-- `←` - Collapse current section
-- `→` - Expand current section
-- `-` - Collapse all sections (global overview mode)
-- `+` - Expand all sections (global detailed mode)
-- `n` - Create new task (enters input mode)
-- `h1`-`h6` - Create new section at specified level (two-key sequence)
-- `e` - Edit current task or section content (enters input mode)
-- `d` - Delete current item (tasks or sections with all contents)
-- `Alt+j`/`Alt+k` or `Alt+↓`/`Alt+↑` - Move items up/down
-- `s` - Save changes to file
-- `q` or `Ctrl+c` - Quit application
-- `--version` - Show version information (command line flag)
+### Usage Patterns
+```bash
+tasks [--file <path>] <command> [args]
+```
 
-### Input Mode
-- Unified input system for tasks and sections
-- Context-aware prompts ("New task:", "Edit section:", "New h2 section:")
-- Text input with live cursor display (│)
-- Full Unicode support for international characters and emojis
-- Empty file support - can create first items in blank markdown files
-- `Enter` - Save input and exit input mode
-- `Esc` / `Ctrl+C` - Cancel input and exit input mode
-- `Backspace` - Delete characters
-- Styled input field with background highlighting
+### Available Commands
+- `ls` - List all tasks and sections with line numbers
+- `add <text>` - Add a new task
+- `add --section <level> <text>` - Add a new section at level 1-6
+- `done <id>` - Mark task as completed
+- `undo <id>` - Mark task as incomplete
+- `rm <id>` - Remove task or section (with children)
+- `edit <id>` - Edit task or section in $EDITOR
+- `--version` - Show version information
 
+### Design Principles
+1. **Stateless**: Each command loads, operates, and saves independently
+2. **Composable**: Output is parsable and suitable for piping
+3. **Unix-friendly**: Proper exit codes, error messages to stderr
+4. **Editor Integration**: Respects $EDITOR environment variable
 
 ## File Structure
 
-### Example markdown format supported:
+### Markdown format supported:
 ```markdown
 # Main Section
 - [ ] Pending task
@@ -103,7 +93,7 @@ go build && ./tasks demo.md  # Quick test
 
 ### Test files included:
 - `demo.md` - Complex hierarchical example with multiple levels
-- `test.md` - Simple test file for basic functionality
+- Test files are created dynamically in unit tests
 
 ## Development Notes
 
@@ -113,42 +103,86 @@ go build && ./tasks demo.md  # Quick test
 - Supports tasks: `^(\s*)-\s+\[([x\s])\]\s+(.+)$`
 - Maintains original file structure when saving
 
-### UI State Management
-- `visibleItems` tracks which items are shown (handles section collapse)
-- Navigation cursor works on visible items only
-- Input mode completely overrides normal navigation
-- Two-key sequence handling with `hMode` state for section creation
-- Section stack tracking for proper indentation display
-- Dynamic highlight width calculation based on terminal width and indentation level
-- Window size handling with responsive layout
-- File modification tracking with dirty state indicator
-- Terminal dimension awareness for proper rendering
+### TaskManager Pattern
+- Centralized data operations with Load() and Save() methods
+- Stateless - each operation creates new instance
+- Error handling with proper Go error patterns
+- Index validation and bounds checking
+
+### Editor Integration
+- Supports vim, nano, emacs, VS Code line positioning
+- Falls back to basic file opening for unknown editors
+- Inherits stdin/stdout/stderr for proper terminal interaction
 
 ### Known Limitations
 - Single-line tasks only (no multiline content support)
 - Regex-based parsing may miss edge cases
-- No undo/redo functionality
-- No search/filter capabilities
+- Basic line number approximation for editor positioning
+- No undo/redo functionality (stateless by design)
 - No configuration file support
-- No task due dates or priorities
 
 ## Common Development Tasks
 
-### Adding new key bindings
-1. Add case in `handleNavigation()`, `handleInputMode()`, or `handleHMode()` functions
-2. Handle special modes (hMode, inputMode) if needed
-3. Consider window resize effects with `tea.WindowSizeMsg`
-4. Test with both navigation and input modes
-5. Consider two-key sequences for complex operations
+### Adding new commands
+1. Add case in main() switch statement
+2. Create handleXxx(filePath string, args []string) function
+3. Use TaskManager pattern: Load() → Modify → Save()
+4. Add proper error handling and user feedback
+5. Add comprehensive tests
 
-### Modifying visual styling
-1. Update color variables at top of file (lines 28-116)
-2. Modify relevant lipgloss styles
-3. Test with different terminal color schemes and sizes
-4. Consider responsive behavior for different terminal widths
+### Extending TaskManager functionality
+1. Add method to TaskManager struct
+2. Follow existing patterns for error handling
+3. Ensure operations work with 0-based internal indexing
+4. Add unit tests covering edge cases
 
-### Extending parser
-1. Update regex patterns in `parseMarkdownFile()` (lines 140-141)
-2. Modify `Item` struct if needed (lines 120-127)
-3. Update `saveToFile()` to maintain format (lines 549-581)
+### Modifying parser
+1. Update regex patterns in `parseMarkdownFile()`
+2. Modify `Item` struct if needed
+3. Update `saveToFile()` to maintain format consistency
 4. Test with various markdown edge cases
+
+### Testing Strategy
+- Unit tests for core functions (parsing, saving, deletion)
+- TaskManager method tests with temporary files
+- Integration tests for complete workflows
+- Error handling tests for invalid operations
+- All tests use createTestFile() helper for temporary files
+
+## CLI Command Examples
+
+### Basic Usage
+```bash
+# List all items
+./tasks --file todo.md ls
+
+# Add a task
+./tasks --file todo.md add "Review documentation"
+
+# Add a section
+./tasks --file todo.md add --section 2 "New Project Phase"
+
+# Mark task 5 as done
+./tasks --file todo.md done 5
+
+# Edit task 3 in $EDITOR
+./tasks --file todo.md edit 3
+
+# Remove task 7
+./tasks --file todo.md rm 7
+```
+
+### Scripting Integration
+```bash
+# Find incomplete tasks
+./tasks --file todo.md ls | grep "\[ \]"
+
+# Count total tasks
+./tasks --file todo.md ls | grep -c "^\d\+\s\+.*- \["
+
+# Use with fzf for interactive selection
+./tasks --file todo.md ls | fzf
+
+# Pipe to other tools
+./tasks --file todo.md ls | awk '/- \[ \]/ { print $1 }' | head -5
+```
