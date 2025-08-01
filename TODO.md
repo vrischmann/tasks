@@ -8,11 +8,6 @@
 - [ ] Open without providing a file (will be store in memory only; saving will ask for a filename)
 - [ ] Add metadata to the line
 
-# Editing
-
-- [x] Allow navigating in the input field (left, right, ctrl+a, ctrl+e)
-- [ ] Allow multi line items
-
 # Misc
 
 - [x] Add a flag to disable the banner
