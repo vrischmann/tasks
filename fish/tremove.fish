@@ -1,4 +1,4 @@
-function tr --description "Remove task interactively"
+function tremove --description "Remove task interactively"
     set file (test -n "$argv[1]"; and echo "$argv[1]"; or echo "TODO.md")
     set task_line (tasks --file $file ls | fzf --tac --no-sort --bind 'space:toggle' --prompt="Remove task: ")
     

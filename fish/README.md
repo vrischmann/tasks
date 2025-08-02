@@ -7,13 +7,11 @@ This directory contains Fish shell functions for interactive task management wit
 ### Option 1: Source individual functions
 ```fish
 # Add to your ~/.config/fish/config.fish
-source /path/to/tasks/fish/tls.fish
-source /path/to/tasks/fish/tt.fish
-source /path/to/tasks/fish/te.fish
-source /path/to/tasks/fish/tmd.fish
-source /path/to/tasks/fish/tr.fish
-source /path/to/tasks/fish/ta.fish
-source /path/to/tasks/fish/tl.fish
+source /path/to/tasks/fish/tlist.fish
+source /path/to/tasks/fish/ttoggle.fish
+source /path/to/tasks/fish/tedit.fish
+source /path/to/tasks/fish/tmulti.fish
+source /path/to/tasks/fish/tremove.fish
 ```
 
 ### Option 2: Copy to Fish functions directory
@@ -30,42 +28,30 @@ ln -sf /path/to/tasks/fish/*.fish ~/.config/fish/functions/
 
 ### Core Functions
 
-- **`tls [file]`** - List incomplete tasks only
-- **`tt [file]`** - Toggle task completion status (done/undone)
-- **`te [file]`** - Edit task interactively
-- **`tmd [file]`** - Mark multiple tasks as done (multi-select)
-- **`tr [file]`** - Remove task interactively (with confirmation)
-
-### Utility Functions
-
-- **`ta 'description' [file]`** - Add task quickly
-- **`tl [file]`** - List all tasks
+- **`tlist [file]`** - List incomplete tasks only
+- **`ttoggle [file]`** - Toggle task completion status (done/undone)
+- **`tedit [file]`** - Edit task interactively
+- **`tmulti [file]`** - Mark multiple tasks as done (multi-select)
+- **`tremove [file]`** - Remove task interactively (with confirmation)
 
 ## Usage Examples
 
 ```fish
 # Show only incomplete tasks
-tls
-tls project.md
+tlist
+tlist project.md
 
 # Toggle task completion
-tt daily.md
+ttoggle daily.md
 
 # Edit a task
-te work.md
+tedit work.md
 
-# Mark multiple tasks as done (use Tab/Shift+Tab in fzf)
-tmd
+# Mark multiple tasks as done (use Space to select in fzf)
+tmulti
 
 # Remove a task (with confirmation)
-tr notes.md
-
-# Quick add
-ta "Review documentation"
-ta "Call client" work.md
-
-# List all tasks
-tl project.md
+tremove notes.md
 ```
 
 ## Requirements
@@ -77,5 +63,5 @@ tl project.md
 
 - All functions default to `TODO.md` if no file is specified
 - Functions that modify tasks provide confirmation messages
-- The `tr` function asks for confirmation before removing tasks
-- Multi-select is supported in `tmd` using fzf's `-m` flag (Tab/Shift+Tab to select)
+- The `tremove` function asks for confirmation before removing tasks
+- Multi-select is supported in `tmulti` using fzf's `-m` flag (Space to select)

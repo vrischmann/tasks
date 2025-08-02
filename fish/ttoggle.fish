@@ -1,4 +1,4 @@
-function tt --description "Toggle task completion status"
+function ttoggle --description "Toggle task completion status"
     set file (test -n "$argv[1]"; and echo "$argv[1]"; or echo "TODO.md")
     set task_line (tasks --file $file ls | fzf --tac --no-sort --bind 'space:toggle' --prompt="Toggle task: ")
     
