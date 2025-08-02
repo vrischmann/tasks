@@ -4,13 +4,14 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"golang.org/x/term"
 	"os"
 	"os/exec"
 	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 // ItemType represents the type of item in the task list
