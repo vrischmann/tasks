@@ -1,7 +1,7 @@
-function tmulti --description "Mark multiple tasks as done"
+function tmark --description "Mark multiple tasks as done"
     set file (test -n "$argv[1]"; and echo "$argv[1]"; or echo "TODO.md")
     set task_lines (tasks --file $file ls | grep "\[ \]" | fzf -m --tac --no-sort --bind 'space:toggle' --prompt="Select tasks to complete: ")
-    
+
     if test -n "$task_lines"
         for task_line in $task_lines
             set task_id (echo $task_line | awk '{print $1}')

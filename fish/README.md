@@ -10,7 +10,7 @@ This directory contains Fish shell functions for interactive task management wit
 source /path/to/tasks/fish/tlist.fish
 source /path/to/tasks/fish/ttoggle.fish
 source /path/to/tasks/fish/tedit.fish
-source /path/to/tasks/fish/tmulti.fish
+source /path/to/tasks/fish/tmark.fish
 source /path/to/tasks/fish/tremove.fish
 ```
 
@@ -31,7 +31,7 @@ ln -sf /path/to/tasks/fish/*.fish ~/.config/fish/functions/
 - **`tlist [file]`** - List incomplete tasks only
 - **`ttoggle [file]`** - Toggle task completion status (done/undone)
 - **`tedit [file]`** - Edit task interactively
-- **`tmulti [file]`** - Mark multiple tasks as done (multi-select)
+- **`tmark [file]`** - Mark multiple tasks as done (multi-select)
 - **`tremove [file]`** - Remove task interactively (with confirmation)
 
 ## Usage Examples
@@ -48,7 +48,7 @@ ttoggle daily.md
 tedit work.md
 
 # Mark multiple tasks as done (use Space to select in fzf)
-tmulti
+tmark
 
 # Remove a task (with confirmation)
 tremove notes.md
@@ -64,4 +64,4 @@ tremove notes.md
 - All functions default to `TODO.md` if no file is specified
 - Functions that modify tasks provide confirmation messages
 - The `tremove` function asks for confirmation before removing tasks
-- Multi-select is supported in `tmulti` using fzf's `-m` flag (Space to select)
+- Multi-select is supported in `tmark` using fzf's `-m` flag (Space to select)
