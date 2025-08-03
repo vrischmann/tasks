@@ -12,6 +12,7 @@ source /path/to/tasks/fish/ttoggle.fish
 source /path/to/tasks/fish/tedit.fish
 source /path/to/tasks/fish/tmark.fish
 source /path/to/tasks/fish/tremove.fish
+source /path/to/tasks/fish/tadd.fish
 ```
 
 ### Option 2: Copy to Fish functions directory
@@ -33,6 +34,7 @@ ln -sf /path/to/tasks/fish/*.fish ~/.config/fish/functions/
 - **`tedit [file]`** - Edit task interactively
 - **`tmark [file]`** - Mark multiple tasks as done (multi-select)
 - **`tremove [file]`** - Remove task interactively (with confirmation)
+- **`tadd [file]`** - Add task interactively after selecting position with fzf
 
 ## Usage Examples
 
@@ -52,6 +54,10 @@ tmark
 
 # Remove a task (with confirmation)
 tremove notes.md
+
+# Add a task interactively (select position with fzf)
+tadd
+tadd project.md
 ```
 
 ## Requirements

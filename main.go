@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"regexp"
 	"runtime/debug"
-	"strconv"
 	"strings"
 
 	"golang.org/x/term"
@@ -485,8 +484,7 @@ func printUsage() {
 	fmt.Println("")
 	fmt.Println("Commands:")
 	fmt.Println("  ls                    List all tasks and sections with line numbers")
-	fmt.Println("  add <text>            Add a new task")
-	fmt.Println("  add --section <n> <text>  Add a new section at level n (1-6)")
+	fmt.Println("  add [flags] <text>    Add a new task or section")
 	fmt.Println("  done <id>             Mark task as completed")
 	fmt.Println("  undo <id>             Mark task as incomplete")
 	fmt.Println("  rm <id>               Remove task or section")
@@ -496,6 +494,8 @@ func printUsage() {
 	fmt.Println("Options:")
 	fmt.Println("  --file <path>         Specify markdown file (default: TODO.md)")
 	fmt.Println("  --version, -v         Show version information")
+	fmt.Println("")
+	fmt.Println("Use 'tasks add --help' for detailed add command options.")
 }
 
 func handleList(filePath string) {
@@ -536,10 +536,54 @@ func handleList(filePath string) {
 }
 
 func handleAdd(filePath string, args []string) {
-	if len(args) < 1 {
-		fmt.Println("Error: add command requires content")
-		fmt.Println("Usage: tasks add <text>")
-		fmt.Println("       tasks add --section <level> <text>")
+	// Create a new flag set for the add command
+	addFlags := flag.NewFlagSet("add", flag.ExitOnError)
+	isSection := addFlags.Bool("section", false, "Add a section instead of a task")
+	sectionLevel := addFlags.Int("level", 1, "Section level (1-6) when adding a section")
+	afterID := addFlags.Int("after", 0, "Add after the specified item ID (1-based)")
+	showHelp := addFlags.Bool("help", false, "Show help for the add command")
+
+	// Custom usage function
+	addFlags.Usage = func() {
+		fmt.Println("Usage: tasks add [flags] <text>")
+		fmt.Println("")
+		fmt.Println("Add a new task or section to the markdown file.")
+		fmt.Println("")
+		fmt.Println("Flags:")
+		fmt.Println("  --section         Add a section instead of a task")
+		fmt.Println("  --level <n>       Section level (1-6), only used with --section (default: 1)")
+		fmt.Println("  --after <id>      Add after the specified item ID (1-based)")
+		fmt.Println("  --help            Show this help message")
+		fmt.Println("")
+		fmt.Println("Examples:")
+		fmt.Println("  tasks add \"Review documentation\"")
+		fmt.Println("  tasks add --after 3 \"Follow-up task\"")
+		fmt.Println("  tasks add --section --level 2 \"New Project Phase\"")
+		fmt.Println("  tasks add --section \"Main Section\"")
+	}
+
+	// Parse the flags
+	if err := addFlags.Parse(args); err != nil {
+		os.Exit(1)
+	}
+
+	// Check if help was requested
+	if *showHelp {
+		addFlags.Usage()
+		return
+	}
+
+	// Get remaining arguments (the content)
+	content := strings.Join(addFlags.Args(), " ")
+	if content == "" {
+		fmt.Println("Error: content is required")
+		addFlags.Usage()
+		os.Exit(1)
+	}
+
+	// Validate section level
+	if *isSection && (*sectionLevel < 1 || *sectionLevel > 6) {
+		fmt.Printf("Error: invalid section level %d (must be 1-6)\n", *sectionLevel)
 		os.Exit(1)
 	}
 
@@ -550,38 +594,40 @@ func handleAdd(filePath string, args []string) {
 		os.Exit(1)
 	}
 
-	// Check if this is a section creation
-	if args[0] == "--section" {
-		if len(args) < 3 {
-			fmt.Println("Error: --section requires level and text")
-			fmt.Println("Usage: tasks add --section <level> <text>")
+	// Convert afterID to 0-based index (-1 means append at end)
+	afterIndex := -1
+	if *afterID > 0 {
+		if *afterID > len(tm.Items) {
+			fmt.Printf("Error: item ID %d does not exist (max: %d)\n", *afterID, len(tm.Items))
 			os.Exit(1)
 		}
+		afterIndex = *afterID - 1 // Convert to 0-based
+	}
 
-		level, err := strconv.Atoi(args[1])
-		if err != nil {
-			fmt.Printf("Error: invalid section level '%s'\n", args[1])
-			os.Exit(1)
-		}
-
-		content := strings.Join(args[2:], " ")
-
-		if err := tm.AddSection(content, level, -1); err != nil {
+	if *isSection {
+		// Add a section
+		if err := tm.AddSection(content, *sectionLevel, afterIndex); err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("Added section: %s %s\n", strings.Repeat("#", level), content)
+		if *afterID > 0 {
+			fmt.Printf("Added section after item %d: %s %s\n", *afterID, strings.Repeat("#", *sectionLevel), content)
+		} else {
+			fmt.Printf("Added section: %s %s\n", strings.Repeat("#", *sectionLevel), content)
+		}
 	} else {
-		// Regular task addition
-		content := strings.Join(args, " ")
-
-		if err := tm.AddTask(content, -1); err != nil {
+		// Add a task
+		if err := tm.AddTask(content, afterIndex); err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("Added task: %s\n", content)
+		if *afterID > 0 {
+			fmt.Printf("Added task after item %d: %s\n", *afterID, content)
+		} else {
+			fmt.Printf("Added task: %s\n", content)
+		}
 	}
 
 	// Save the changes

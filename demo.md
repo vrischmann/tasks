@@ -1,6 +1,7 @@
 # Project Tasks
 
 - [x] coucou
+- [ ] New task after coucou
 
 ## Frontend
 
@@ -39,3 +40,5 @@
 - [ ] Test indentation task
 - [ ] Test task alignment
 - [ ] Flat formatting test
+
+### Test Section
