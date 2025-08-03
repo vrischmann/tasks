@@ -6,13 +6,10 @@ A stateless, Unix-friendly command-line tool for managing tasks stored in markdo
 
 - 🚀 **Stateless CLI** - Each command operates independently, perfect for scripting
 - 📋 **Markdown Integration** - Works with standard markdown task lists
-- 🌳 **Hierarchical Structure** - Support for nested sections and tasks
 - 🔧 **Composable Output** - Clean, parsable output suitable for piping
 - ⚡ **Task Management** - Add, complete, edit, and remove tasks and sections
 - 📝 **Editor Integration** - Edit items directly in your preferred editor ($EDITOR)
-- 🗑️ **Smart Deletion** - Remove sections with all their children
-- 🌍 **Unicode Support** - Full support for international characters and emojis
-- 📁 **Empty File Support** - Works with empty markdown files
+- 🐠 **Fish Shell Integration** - Built-in install/uninstall for Fish shell functions
 
 ## Installation
 
@@ -36,25 +33,25 @@ go build
 ### Basic Commands
 ```bash
 # List all tasks and sections
-tasks --file todo.md ls
+tasks ls
 
 # Add a new task
-tasks --file todo.md add "Review documentation"
+tasks add "Review documentation"
 
 # Add a new section
-tasks --file todo.md add --section 2 "Development Phase"
+tasks add --section 2 "Development Phase"
 
 # Mark task 5 as completed
-tasks --file todo.md done 5
+tasks done 5
 
 # Mark task 3 as incomplete
-tasks --file todo.md undo 3
+tasks undo 3
 
 # Edit task 7 in your editor
-tasks --file todo.md edit 7
+tasks edit 7
 
 # Remove task 4
-tasks --file todo.md rm 4
+tasks rm 4
 ```
 
 ### Try with Demo File
@@ -65,6 +62,15 @@ go build
 ./tasks --file demo.md add "Try this new CLI tool"
 ```
 
+### Fish Shell Quick Setup
+If you use Fish shell, get enhanced functionality with one command:
+```bash
+# Install Fish shell functions
+tasks install
+```
+
+See [Available Functions After Installation](#available-functions-after-installation) for the complete list of Fish functions.
+
 ## CLI Reference
 
 ### Usage
@@ -74,6 +80,7 @@ tasks [--file <path>] <command> [args]
 
 ### Global Options
 - `--file <path>` - Specify markdown file (default: TODO.md)
+- `--help`, `-h` - Show help message
 - `--version`, `-v` - Show version information
 
 ### Commands
@@ -81,7 +88,7 @@ tasks [--file <path>] <command> [args]
 #### `ls` - List Items
 Lists all tasks and sections with 1-based line numbers.
 ```bash
-tasks --file todo.md ls
+tasks ls
 ```
 
 Example output:
@@ -99,32 +106,32 @@ Add tasks or sections to the file.
 
 **Add a task:**
 ```bash
-tasks --file todo.md add "New task description"
+tasks add "New task description"
 ```
 
 **Add a section:**
 ```bash
-tasks --file todo.md add --section 1 "Main Section"
-tasks --file todo.md add --section 2 "Subsection"
+tasks add --section 1 "Main Section"
+tasks add --section 2 "Subsection"
 ```
 
 #### `done` / `undo` - Toggle Completion
 Mark tasks as completed or incomplete.
 ```bash
-tasks --file todo.md done 3    # Mark task 3 as completed
-tasks --file todo.md undo 3    # Mark task 3 as incomplete
+tasks done 3    # Mark task 3 as completed
+tasks undo 3    # Mark task 3 as incomplete
 ```
 
 #### `rm` - Remove Items
 Remove tasks or sections. When removing sections, all child items are also removed.
 ```bash
-tasks --file todo.md rm 5      # Remove item 5
+tasks rm 5      # Remove item 5
 ```
 
 #### `edit` - Edit in Editor
 Open the specified item in your preferred editor ($EDITOR).
 ```bash
-tasks --file todo.md edit 2    # Edit item 2 in $EDITOR
+tasks edit 2    # Edit item 2 in $EDITOR
 ```
 
 Supports line positioning for:
@@ -132,6 +139,20 @@ Supports line positioning for:
 - nano (`+line`)
 - emacs (`+line`)
 - VS Code (`--goto file:line`)
+
+#### `install` - Install Fish Shell Functions
+Install or update Fish shell functions to `~/.config/fish/functions/`.
+```bash
+tasks install              # Install with confirmation prompt
+tasks install --yes        # Install without confirmation
+```
+
+#### `uninstall` - Remove Fish Shell Functions
+Remove Fish shell functions that were previously installed by this tool.
+```bash
+tasks uninstall            # Uninstall with confirmation prompt
+tasks uninstall --yes      # Uninstall without confirmation
+```
 
 ## Supported Markdown Format
 
@@ -159,44 +180,55 @@ The tool works with standard markdown task lists:
 ### Shell Integration
 ```bash
 # Count incomplete tasks
-tasks --file todo.md ls | grep -c "\[ \]"
+tasks ls | grep -c "\[ \]"
 
 # List only incomplete tasks
-tasks --file todo.md ls | grep "\[ \]"
+tasks ls | grep "\[ \]"
 
 # Get task IDs for incomplete tasks
-tasks --file todo.md ls | awk '/\[ \]/ {print $1}'
+tasks ls | awk '/\[ \]/ {print $1}'
 ```
 
 ### fzf Integration
 ```bash
 # Interactive task selection
-TASK_ID=$(tasks --file todo.md ls | fzf | awk '{print $1}')
-tasks --file todo.md done $TASK_ID
+TASK_ID=$(tasks ls | fzf | awk '{print $1}')
+tasks done $TASK_ID
 ```
 
 ### Fish Shell Functions
-```fish
-# Add to your ~/.config/fish/config.fish
-function td
-    tasks --file ~/todo.md $argv
-end
 
-function tl
-    tasks --file ~/todo.md ls
-end
+**Automatic Installation:**
+The easiest way to get Fish shell integration is to use the built-in install command:
+```bash
+# Install all Fish functions automatically
+tasks install
 
-function ta
-    tasks --file ~/todo.md add $argv
-end
+# Or install without confirmation
+tasks install --yes
 ```
 
-### Vim Integration
-```vim
-" Add to your .vimrc
-command! -nargs=* TaskAdd execute '!tasks --file % add' shellescape(<q-args>)
-command! TaskList !tasks --file % ls
+This installs helper functions that provide:
+- **Enhanced workflows** - Integrated with fzf for interactive selection
+- **Validation** - Input validation and error handling
+
+**Manual Setup:**
+If you prefer manual setup, copy all files from `fish/functions/` to your `~/.config/fish/functions/` directory:
+```bash
+cp fish/functions/*.fish ~/.config/fish/functions/
 ```
+
+**Available Functions After Installation:**
+Once installed, you get these Fish functions:
+
+- **`tlist`** - Browse and select tasks using fzf for task management
+- **`tadd`** - Add a new task with input validation
+- **`tmark`** - Mark tasks as completed using selection
+- **`tremove`** - Remove tasks with confirmation prompts
+- **`ttoggle`** - Toggle task completion status
+- **`tedit`** - Edit tasks directly in your `$EDITOR` with line positioning
+
+All functions provide enhanced workflows with input validation and fzf integration.
 
 ## Examples
 
@@ -238,23 +270,6 @@ gh issue list --json number,title | \
   while read line; do
     tasks --file issues.md add "$line"
   done
-```
-
-## File Structure
-
-```
-tasks/
-├── main.go           # Main application (~600 lines, single file)
-├── main_test.go      # Comprehensive test suite
-├── go.mod            # Go module with minimal dependencies
-├── go.sum            # Go module checksums
-├── demo.md           # Example markdown file
-├── README.md         # This file
-├── CLAUDE.md         # Developer documentation
-├── TODO.md           # Project todo list
-├── AGENTS.md         # Agent documentation
-├── LICENSE           # MIT license
-└── docs/             # Documentation directory
 ```
 
 ## Development
