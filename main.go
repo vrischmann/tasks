@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,12 +29,13 @@ const (
 
 // Item represents a task or section in the markdown file
 type Item struct {
-	Type       ItemType // Whether this is a section or task
-	Level      int      // Heading level (1-6) for sections, or indentation for tasks
-	Content    string   // The actual text content
-	Checked    *bool    // nil for sections, true/false for tasks
-	Children   []Item   // Child items (for hierarchical structure)
-	LineNumber int      // Line number in the original file (1-based)
+	Type       ItemType          // Whether this is a section or task
+	Level      int               // Heading level (1-6) for sections, or indentation for tasks
+	Content    string            // The actual text content (clean description for tasks)
+	Checked    *bool             // nil for sections, true/false for tasks
+	Children   []Item            // Child items (for hierarchical structure)
+	LineNumber int               // Line number in the original file (1-based)
+	Metadata   map[string]string // Task metadata (nil for sections)
 }
 
 // TaskManager handles loading, modifying, and saving markdown files
@@ -97,7 +99,8 @@ func (tm *TaskManager) AddTask(content string, afterIndex int) error {
 		Level:      0, // Default to no indentation
 		Content:    content,
 		Checked:    func() *bool { b := false; return &b }(),
-		LineNumber: 0, // Will be set to proper value when saved
+		LineNumber: 0,   // Will be set to proper value when saved
+		Metadata:   nil, // No metadata by default
 	}
 
 	if afterIndex == -1 {
@@ -128,7 +131,8 @@ func (tm *TaskManager) AddSection(content string, level int, afterIndex int) err
 		Level:      level,
 		Content:    content,
 		Checked:    nil,
-		LineNumber: 0, // Will be set to proper value when saved
+		LineNumber: 0,   // Will be set to proper value when saved
+		Metadata:   nil, // Sections don't have metadata
 	}
 
 	if afterIndex == -1 {
@@ -189,15 +193,32 @@ func parseMarkdownFile(filePath string) ([]Item, error) {
 		// Check if it's a task item
 		if matches := taskRegex.FindStringSubmatch(line); matches != nil {
 			indentation := len(matches[1])
-			checked := matches[2] == "x"
-			content := matches[3]
-			items = append(items, Item{
-				Type:       TypeTask,
-				Level:      indentation,
-				Content:    content,
-				Checked:    &checked,
-				LineNumber: lineNumber,
-			})
+
+			// Use parseTask to extract metadata and clean description
+			parsedTask := parseTask(line)
+			if parsedTask.Description == "" && len(parsedTask.Metadata) == 0 {
+				// parseTask failed, fall back to original parsing
+				checked := matches[2] == "x"
+				content := matches[3]
+				items = append(items, Item{
+					Type:       TypeTask,
+					Level:      indentation,
+					Content:    content,
+					Checked:    &checked,
+					LineNumber: lineNumber,
+					Metadata:   nil,
+				})
+			} else {
+				// Use parsed result
+				items = append(items, Item{
+					Type:       TypeTask,
+					Level:      indentation,
+					Content:    parsedTask.Description,
+					Checked:    &parsedTask.Completed,
+					LineNumber: lineNumber,
+					Metadata:   parsedTask.Metadata,
+				})
+			}
 			continue
 		}
 	}
@@ -401,7 +422,23 @@ func saveToFile(filePath string, items []Item) error {
 			if item.Checked != nil && *item.Checked {
 				checkBox = "[x]"
 			}
-			line = "- " + checkBox + " " + item.Content
+
+			// Build the content with metadata
+			content := item.Content
+			if len(item.Metadata) > 0 {
+				// Add metadata to the end of the content in sorted order
+				keys := slices.Sorted(maps.Keys(item.Metadata))
+				for _, key := range keys {
+					value := item.Metadata[key]
+					// Quote values that contain spaces
+					if strings.Contains(value, " ") {
+						value = `"` + strings.ReplaceAll(value, `"`, `\"`) + `"`
+					}
+					content += " " + key + ":" + value
+				}
+			}
+
+			line = "- " + checkBox + " " + content
 
 			// Write the task
 			if _, err := fmt.Fprintln(file, line); err != nil {
