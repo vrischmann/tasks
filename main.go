@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"regexp"
 	"runtime/debug"
+	"slices"
 	"strings"
 
 	"golang.org/x/term"
@@ -106,7 +107,7 @@ func (tm *TaskManager) AddTask(content string, afterIndex int) error {
 
 		// Insert at afterIndex + 1
 		insertPos := afterIndex + 1
-		tm.Items = append(tm.Items[:insertPos], append([]Item{newTask}, tm.Items[insertPos:]...)...)
+		tm.Items = slices.Insert(tm.Items, insertPos, newTask)
 	}
 
 	return nil
@@ -137,7 +138,7 @@ func (tm *TaskManager) AddSection(content string, level int, afterIndex int) err
 
 		// Insert at afterIndex + 1
 		insertPos := afterIndex + 1
-		tm.Items = append(tm.Items[:insertPos], append([]Item{newSection}, tm.Items[insertPos:]...)...)
+		tm.Items = slices.Insert(tm.Items, insertPos, newSection)
 	}
 
 	return nil
@@ -225,10 +226,10 @@ func deleteItem(items []Item, index int) []Item {
 			deleteEnd++
 		}
 		// Remove the range of items
-		return append(items[:index], items[deleteEnd:]...)
+		return slices.Delete(items, index, deleteEnd)
 	} else {
 		// For tasks, just remove the single item
-		return append(items[:index], items[index+1:]...)
+		return slices.Delete(items, index, index+1)
 	}
 }
 
