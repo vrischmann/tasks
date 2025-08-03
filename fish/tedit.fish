@@ -1,8 +1,13 @@
 function tedit --description "Edit task interactively"
-    set file (test -n "$argv[1]"; and echo "$argv[1]"; or echo "TODO.md")
-    set task_id (tasks --file $file ls | fzf --tac --no-sort --bind 'space:toggle' --prompt="Edit task: " | awk '{print $1}')
+    set file (__tasks_get_file $argv[1])
+    __tasks_check_command fzf; or return 1
     
-    if test -n "$task_id"
+    set task_list (__tasks_get_list $file); or return $status
+    set selected_line (__tasks_fzf_select $task_list "Edit task: ")
+    
+    if test -n "$selected_line"
+        set task_id (__tasks_extract_id "$selected_line")
+        __tasks_validate_id "$task_id"; or return 1
         tasks --file $file edit $task_id
     end
 end

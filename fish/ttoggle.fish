@@ -1,10 +1,15 @@
 function ttoggle --description "Toggle task completion status"
-    set file (test -n "$argv[1]"; and echo "$argv[1]"; or echo "TODO.md")
-    set task_line (tasks --file $file ls | fzf --tac --no-sort --bind 'space:toggle' --prompt="Toggle task: ")
+    set file (__tasks_get_file $argv[1])
+    __tasks_check_command fzf; or return 1
     
-    if test -n "$task_line"
-        set task_id (echo $task_line | awk '{print $1}')
-        if echo $task_line | grep -q "\[x\]"
+    set task_list (__tasks_get_list $file); or return $status
+    set selected_line (__tasks_fzf_select $task_list "Toggle task: ")
+    
+    if test -n "$selected_line"
+        set task_id (__tasks_extract_id "$selected_line")
+        __tasks_validate_id "$task_id"; or return 1
+        
+        if echo $selected_line | grep -q "\[x\]"
             # Task is completed, mark as incomplete
             tasks --file $file undo $task_id
             echo "Task $task_id marked as incomplete"

@@ -1,4 +1,4 @@
 function tlist --description "List incomplete tasks only"
-    set file (test -n "$argv[1]"; and echo "$argv[1]"; or echo "TODO.md")
+    set file (__tasks_get_file $argv[1])
     tasks --file $file ls | grep "\[ \]"
 end
