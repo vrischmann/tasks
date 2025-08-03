@@ -2,10 +2,14 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"embed"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime/debug"
 	"slices"
@@ -433,21 +437,44 @@ func getVersion() string {
 	return version
 }
 
+//go:embed fish/functions/*.fish
+var fishFunctions embed.FS
+
 // isTerminal checks if stdout is connected to a terminal
 func isTerminal() bool {
 	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
 func main() {
-	// Handle version flag early
-	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+	// Define global flags
+	var showVersion bool
+	var showHelp bool
+	var filePath string
+
+	flag.BoolVar(&showVersion, "version", false, "Show version information")
+	flag.BoolVar(&showVersion, "v", false, "Show version information")
+	flag.BoolVar(&showHelp, "help", false, "Show help message")
+	flag.BoolVar(&showHelp, "h", false, "Show help message")
+	flag.StringVar(&filePath, "file", "TODO.md", "Path to the markdown file")
+
+	// Custom usage function to avoid default flag help
+	flag.Usage = func() {
+		printUsage()
+	}
+
+	flag.Parse()
+
+	// Handle version flag
+	if showVersion {
 		fmt.Printf("tasks version %s\n", getVersion())
 		return
 	}
 
-	// Define global file flag
-	filePath := flag.String("file", "TODO.md", "Path to the markdown file")
-	flag.Parse()
+	// Handle help flag
+	if showHelp {
+		printUsage()
+		return
+	}
 
 	args := flag.Args()
 	if len(args) < 1 {
@@ -460,19 +487,23 @@ func main() {
 
 	switch cmd {
 	case "ls":
-		handleList(*filePath)
+		handleList(filePath)
 	case "add":
-		handleAdd(*filePath, cmdArgs)
+		handleAdd(filePath, cmdArgs)
 	case "done":
-		handleDone(*filePath, cmdArgs)
+		handleDone(filePath, cmdArgs)
 	case "undo":
-		handleUndo(*filePath, cmdArgs)
+		handleUndo(filePath, cmdArgs)
 	case "rm":
-		handleRemove(*filePath, cmdArgs)
+		handleRemove(filePath, cmdArgs)
 	case "edit":
-		handleEdit(*filePath, cmdArgs)
+		handleEdit(filePath, cmdArgs)
 	case "search":
-		handleSearch(*filePath, cmdArgs)
+		handleSearch(filePath, cmdArgs)
+	case "install":
+		handleInstall(cmdArgs)
+	case "uninstall":
+		handleUninstall(cmdArgs)
 	default:
 		fmt.Printf("Unknown command: %s\n", cmd)
 		printUsage()
@@ -491,9 +522,12 @@ func printUsage() {
 	fmt.Println("  rm <id>               Remove task or section")
 	fmt.Println("  edit <id>             Edit task or section in $EDITOR")
 	fmt.Println("  search <term> [...]   Search tasks and sections with fuzzy matching")
+	fmt.Println("  install [--yes]       Install Fish shell functions")
+	fmt.Println("  uninstall [--yes]     Uninstall Fish shell functions")
 	fmt.Println("")
 	fmt.Println("Options:")
 	fmt.Println("  --file <path>         Specify markdown file (default: TODO.md)")
+	fmt.Println("  --help, -h            Show this help message")
 	fmt.Println("  --version, -v         Show version information")
 	fmt.Println("")
 	fmt.Println("Use 'tasks add --help' for detailed add command options.")
@@ -887,4 +921,203 @@ func handleSearch(filePath string, args []string) {
 			}
 		}
 	}
+}
+
+// calculateSHA256 calculates the SHA256 hash of the given data
+func calculateSHA256(data []byte) string {
+	hash := sha256.Sum256(data)
+	return fmt.Sprintf("%x", hash)
+}
+
+// getTargetDir returns the target directory for Fish functions
+func getTargetDir() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+	return filepath.Join(homeDir, ".config", "fish", "functions"), nil
+}
+
+// promptConfirmation prompts the user for confirmation
+func promptConfirmation(message string) bool {
+	fmt.Printf("%s (y/N): ", message)
+	var response string
+	fmt.Scanln(&response)
+	return strings.ToLower(strings.TrimSpace(response)) == "y"
+}
+
+// handleInstall installs or updates Fish shell functions
+func handleInstall(args []string) {
+	// Create flag set for install command
+	installFlags := flag.NewFlagSet("install", flag.ExitOnError)
+	yesFlag := installFlags.Bool("yes", false, "Skip confirmation prompt")
+
+	installFlags.Usage = func() {
+		fmt.Println("Usage: tasks install [--yes]")
+		fmt.Println("")
+		fmt.Println("Install or update Fish shell functions.")
+		fmt.Println("")
+		fmt.Println("Flags:")
+		fmt.Println("  --yes    Skip confirmation prompt")
+	}
+
+	if err := installFlags.Parse(args); err != nil {
+		os.Exit(1)
+	}
+
+	// Get target directory
+	targetDir, err := getTargetDir()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Ensure target directory exists
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		fmt.Printf("Error creating directory %s: %v\n", targetDir, err)
+		os.Exit(1)
+	}
+
+	// Read embedded files and check what needs to be installed/updated
+	entries, err := fs.ReadDir(fishFunctions, "fish/functions")
+	if err != nil {
+		fmt.Printf("Error reading embedded files: %v\n", err)
+		os.Exit(1)
+	}
+
+	var filesToUpdate []string
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".fish") {
+			continue
+		}
+
+		embeddedContent, err := fs.ReadFile(fishFunctions, "fish/functions/"+entry.Name())
+		if err != nil {
+			fmt.Printf("Error reading embedded file %s: %v\n", entry.Name(), err)
+			os.Exit(1)
+		}
+
+		targetFile := filepath.Join(targetDir, entry.Name())
+		embeddedHash := calculateSHA256(embeddedContent)
+
+		// Check if file exists and compare hashes
+		if existingContent, err := os.ReadFile(targetFile); err == nil {
+			existingHash := calculateSHA256(existingContent)
+			if existingHash != embeddedHash {
+				filesToUpdate = append(filesToUpdate, entry.Name())
+			}
+		} else if os.IsNotExist(err) {
+			filesToUpdate = append(filesToUpdate, entry.Name())
+		} else {
+			fmt.Printf("Error reading existing file %s: %v\n", targetFile, err)
+			os.Exit(1)
+		}
+	}
+
+	if len(filesToUpdate) == 0 {
+		fmt.Println("[✓] All Fish functions are already up-to-date")
+		return
+	}
+
+	// Prompt for confirmation unless --yes flag is used
+	if !*yesFlag {
+		message := fmt.Sprintf("This will install/update %d Fish function(s). Continue?", len(filesToUpdate))
+		if !promptConfirmation(message) {
+			fmt.Println("Installation cancelled")
+			return
+		}
+	}
+
+	// Install/update files
+	for _, fileName := range filesToUpdate {
+		embeddedContent, err := fs.ReadFile(fishFunctions, "fish/functions/"+fileName)
+		if err != nil {
+			fmt.Printf("Error reading embedded file %s: %v\n", fileName, err)
+			continue
+		}
+
+		targetFile := filepath.Join(targetDir, fileName)
+		if err := os.WriteFile(targetFile, embeddedContent, 0644); err != nil {
+			fmt.Printf("Error writing file %s: %v\n", targetFile, err)
+			continue
+		}
+
+		fmt.Printf("[✓] Installed %s\n", fileName)
+	}
+
+	fmt.Printf("\nSuccessfully processed %d Fish function(s)\n", len(filesToUpdate))
+}
+
+// handleUninstall removes Fish shell functions
+func handleUninstall(args []string) {
+	// Create flag set for uninstall command
+	uninstallFlags := flag.NewFlagSet("uninstall", flag.ExitOnError)
+	yesFlag := uninstallFlags.Bool("yes", false, "Skip confirmation prompt")
+
+	uninstallFlags.Usage = func() {
+		fmt.Println("Usage: tasks uninstall [--yes]")
+		fmt.Println("")
+		fmt.Println("Remove Fish shell functions previously installed by this tool.")
+		fmt.Println("")
+		fmt.Println("Flags:")
+		fmt.Println("  --yes    Skip confirmation prompt")
+	}
+
+	if err := uninstallFlags.Parse(args); err != nil {
+		os.Exit(1)
+	}
+
+	// Get target directory
+	targetDir, err := getTargetDir()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Read embedded files to know what to remove
+	entries, err := fs.ReadDir(fishFunctions, "fish/functions")
+	if err != nil {
+		fmt.Printf("Error reading embedded files: %v\n", err)
+		os.Exit(1)
+	}
+
+	var filesToRemove []string
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".fish") {
+			continue
+		}
+
+		targetFile := filepath.Join(targetDir, entry.Name())
+		if _, err := os.Stat(targetFile); err == nil {
+			filesToRemove = append(filesToRemove, entry.Name())
+		}
+	}
+
+	if len(filesToRemove) == 0 {
+		fmt.Println("No Fish functions found to remove")
+		return
+	}
+
+	// Prompt for confirmation unless --yes flag is used
+	if !*yesFlag {
+		message := fmt.Sprintf("This will remove %d Fish function(s). Continue?", len(filesToRemove))
+		if !promptConfirmation(message) {
+			fmt.Println("Uninstallation cancelled")
+			return
+		}
+	}
+
+	// Remove files
+	for _, fileName := range filesToRemove {
+		targetFile := filepath.Join(targetDir, fileName)
+		if err := os.Remove(targetFile); err != nil {
+			fmt.Printf("Error removing file %s: %v\n", targetFile, err)
+			continue
+		}
+		fmt.Printf("[✓] Removed %s\n", fileName)
+	}
+
+	fmt.Printf("\nSuccessfully removed %d Fish function(s)\n", len(filesToRemove))
 }
