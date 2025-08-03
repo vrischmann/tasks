@@ -46,18 +46,14 @@ func parseTask(taskLine string) ParsedTask {
 
 // parseTaskPrefix parses "- [x]" or "- [ ]" and sets completion status
 func (p *TaskParser) parseTaskPrefix(result *ParsedTask) bool {
-	// Skip whitespace
 	p.skipWhitespace()
 
-	// Expect "-"
 	if !p.expect('-') {
 		return false
 	}
 
-	// Skip whitespace
 	p.skipWhitespace()
 
-	// Expect "["
 	if !p.expect('[') {
 		return false
 	}
@@ -79,12 +75,10 @@ func (p *TaskParser) parseTaskPrefix(result *ParsedTask) bool {
 		return false
 	}
 
-	// Expect "]"
 	if !p.expect(']') {
 		return false
 	}
 
-	// Skip whitespace after checkbox
 	p.skipWhitespace()
 
 	return true
