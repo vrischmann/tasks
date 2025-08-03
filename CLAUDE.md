@@ -31,11 +31,12 @@ go build && ./tasks --file demo.md ls  # Quick test
 
 ## Application Architecture
 
-### Core Components (Single-file architecture, ~840 lines)
+### Core Components (Single-file architecture, ~1,123 lines)
 
 - **Module**: `dev.rischmann.fr/tasks`
 - **Go Version**: 1.24.5
 - **Dependencies**: Minimal external dependencies (golang.org/x/term for terminal support, testify for testing)
+- **Fish Shell Integration**: Comprehensive Fish shell functions with fzf integration for interactive task management
 
 ### Key Components
 - `ItemType` enum - Distinguishes between sections and tasks
@@ -91,8 +92,11 @@ tasks [--file <path>] <command> [args]
 - [ ] Deeply nested task
 ```
 
-### Test files included:
+### Test files and additional components:
 - `demo.md` - Complex hierarchical example with multiple levels
+- `fish/` - Fish shell functions for interactive task management with fzf
+- `Justfile` - Task automation using the just command runner
+- `AGENTS.md` - Agent configuration documentation
 - Test files are created dynamically in unit tests
 
 ## Development Notes
@@ -148,6 +152,42 @@ tasks [--file <path>] <command> [args]
 - Integration tests for complete workflows
 - Error handling tests for invalid operations
 - All tests use createTestFile() helper for temporary files
+
+## Fish Shell Integration
+
+### Interactive Functions
+The repository includes Fish shell functions for enhanced interactive task management:
+
+- **`tlist [file]`** - List incomplete tasks only
+- **`ttoggle [file]`** - Toggle task completion status with fzf selection
+- **`tedit [file]`** - Edit task interactively with fzf selection
+- **`tmark [file]`** - Mark multiple tasks as done (multi-select with fzf)
+- **`tremove [file]`** - Remove task interactively with confirmation
+- **`tadd [file]`** - Add task interactively after selecting position
+
+### Installation
+```fish
+# Copy to Fish functions directory
+cp fish/functions/*.fish ~/.config/fish/functions/
+
+# Or symlink for development
+ln -sf /path/to/tasks/fish/functions/*.fish ~/.config/fish/functions/
+```
+
+### Usage Examples
+```fish
+# Show only incomplete tasks
+tlist project.md
+
+# Toggle task completion interactively
+ttoggle daily.md
+
+# Mark multiple tasks as done
+tmark work.md
+
+# Add task with position selection
+tadd TODO.md
+```
 
 ## CLI Command Examples
 
