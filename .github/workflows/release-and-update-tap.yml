@@ -69,9 +69,9 @@ jobs:
           rm checksums.txt
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          branch-token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           commit-message: "Update tasks to version ${{ github.ref_name }}"
           title: "Update tasks to version ${{ github.ref_name }}"
           body: |
