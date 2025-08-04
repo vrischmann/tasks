@@ -317,6 +317,9 @@ func searchItems(items []Item, queries []string) []SearchResult {
 	return results
 }
 
+// version is set at build time using -ldflags
+var version string
+
 // getVersion returns version information from build info
 func getVersion() string {
 	info, ok := debug.ReadBuildInfo()
@@ -324,7 +327,11 @@ func getVersion() string {
 		return "unknown"
 	}
 
-	version := info.Main.Version
+	if version != "" {
+		return version
+	}
+
+	version = info.Main.Version
 	if version == "(devel)" || version == "" {
 		// Try to get commit hash from build settings
 		for _, setting := range info.Settings {
