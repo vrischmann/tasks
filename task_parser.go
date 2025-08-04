@@ -91,24 +91,16 @@ func (p *TaskParser) parseContent(result *ParsedTask) {
 	// Parse all tokens (words and metadata)
 	for p.pos < p.len {
 		p.skipWhitespace()
-		if p.pos >= p.len {
-			break
-		}
-
+		
 		// Try to parse metadata key:value pair
 		if key, value, ok := p.parseMetadata(); ok {
 			result.Metadata[key] = value
 			continue
 		}
 
-		// Parse regular word
-		if word := p.parseWord(); word != "" {
-			tokens = append(tokens, word)
-			continue
-		}
-
-		// Skip unknown character
-		p.pos++
+		// Parse regular word (will always succeed for non-whitespace characters)
+		word := p.parseWord()
+		tokens = append(tokens, word)
 	}
 
 	// Join all non-metadata tokens as description
