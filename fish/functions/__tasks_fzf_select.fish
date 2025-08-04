@@ -7,7 +7,6 @@ function __tasks_fzf_select --description "Common fzf task selection with custom
         --layout=reverse \
         --border \
         --preview-window=hidden \
-        --tac \
         --no-sort \
         --bind 'space:toggle' \
         --no-multi

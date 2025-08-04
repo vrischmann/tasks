@@ -7,7 +7,6 @@ function __tasks_fzf_select_multi --description "Common fzf multi-task selection
         --layout=reverse \
         --border \
         --preview-window=hidden \
-        --tac \
         --no-sort \
         --bind 'space:toggle' \
         -m
