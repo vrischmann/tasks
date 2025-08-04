@@ -12,13 +12,10 @@ func createTestFile(t *testing.T, content string) string {
 	t.Helper()
 
 	tmpFile, err := os.CreateTemp("", "tasks_test_*.md")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
-	if _, err := tmpFile.WriteString(content); err != nil {
-		t.Fatal(err)
-	}
+	_, err = tmpFile.WriteString(content)
+	require.NoError(t, err)
 
 	tmpFile.Close()
 
