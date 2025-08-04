@@ -122,35 +122,13 @@ func (tm *TaskManager) AddSection(content string, level int, afterIndex int) err
 	return nil
 }
 
-// createAndLoadTaskManager creates a TaskManager instance and loads the file
-func createAndLoadTaskManager(filePath string) (*TaskManager, error) {
+// NewTaskManager creates a new TaskManager and loads the file.
+func NewTaskManager(filePath string) (*TaskManager, error) {
 	tm := &TaskManager{FilePath: filePath}
 	if err := tm.Load(); err != nil {
 		return nil, fmt.Errorf("error loading file: %w", err)
 	}
 	return tm, nil
-}
-
-// saveTaskManager saves the TaskManager with consistent error handling
-func saveTaskManager(tm *TaskManager) error {
-	if err := tm.Save(); err != nil {
-		return fmt.Errorf("error saving file: %w", err)
-	}
-	return nil
-}
-
-// withTaskManager handles the Load-Operation-Save pattern for TaskManager operations
-func withTaskManager(filePath string, operation func(*TaskManager) error) error {
-	tm, err := createAndLoadTaskManager(filePath)
-	if err != nil {
-		return err
-	}
-
-	if err := operation(tm); err != nil {
-		return err
-	}
-
-	return saveTaskManager(tm)
 }
 
 // saveToFile writes the items back to the markdown file

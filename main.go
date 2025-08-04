@@ -499,8 +499,8 @@ func handleAdd(filePath string, args []string) error {
 	}
 
 	// Create TaskManager and load items
-	tm := &TaskManager{FilePath: filePath}
-	if err := tm.Load(); err != nil {
+	tm, err := NewTaskManager(filePath)
+	if err != nil {
 		return fmt.Errorf("loading file: %w", err)
 	}
 
@@ -556,13 +556,17 @@ func handleDone(filePath string, args []string) error {
 	}
 	id := index + 1 // Keep original ID for display
 
-	// Use withTaskManager to handle load-operation-save pattern
-	err = withTaskManager(filePath, func(tm *TaskManager) error {
-		return tm.ToggleTask(index, true)
-	})
-
+	tm, err := NewTaskManager(filePath)
 	if err != nil {
 		return err
+	}
+
+	if err := tm.ToggleTask(index, true); err != nil {
+		return err
+	}
+
+	if err := tm.Save(); err != nil {
+		return fmt.Errorf("saving file: %w", err)
 	}
 
 	fmt.Printf("Marked task %d as completed\n", id)
@@ -595,13 +599,17 @@ func handleUndo(filePath string, args []string) error {
 	}
 	id := index + 1 // Keep original ID for display
 
-	// Use withTaskManager to handle load-operation-save pattern
-	err = withTaskManager(filePath, func(tm *TaskManager) error {
-		return tm.ToggleTask(index, false)
-	})
-
+	tm, err := NewTaskManager(filePath)
 	if err != nil {
 		return err
+	}
+
+	if err := tm.ToggleTask(index, false); err != nil {
+		return err
+	}
+
+	if err := tm.Save(); err != nil {
+		return fmt.Errorf("saving file: %w", err)
 	}
 
 	fmt.Printf("Marked task %d as incomplete\n", id)
@@ -621,63 +629,64 @@ func handleRemove(filePath string, args []string) error {
 	id := index + 1 // Keep original ID for display
 
 	// Check for force flag
-	force := false
-	if len(args) > 1 && args[1] == "--force" {
-		force = true
-	}
+	force := len(args) > 1 && args[1] == "--force"
 
 	// Variables to capture item details before removal
 	var itemContent string
 	var itemType string
 
-	// Use withTaskManager to handle load-operation-save pattern
-	err = withTaskManager(filePath, func(tm *TaskManager) error {
-		// Get the item before removing it (for confirmation message)
-		item, err := tm.GetItem(index)
-		if err != nil {
-			return err
-		}
-
-		// Store the item details before removal to avoid pointer issues
-		itemContent = item.Content
-		itemType = "task"
-		if item.Type == TypeSection {
-			itemType = "section"
-		}
-
-		// Check if confirmation is needed
-		if !force {
-			itemDesc := fmt.Sprintf("%s %d: %s", itemType, id, itemContent)
-			if item.Type == TypeSection {
-				// Count children that will be removed
-				childCount := 0
-				for i := index + 1; i < len(tm.Items); i++ {
-					nextItem := tm.Items[i]
-					if nextItem.Type == TypeSection && nextItem.Level <= item.Level {
-						break
-					}
-					childCount++
-				}
-				if childCount > 0 {
-					itemDesc = fmt.Sprintf("%s %d: %s (and %d child items)", itemType, id, itemContent, childCount)
-				}
-			}
-
-			confirmed, err := confirmRemoval(itemDesc)
-			if err != nil {
-				return fmt.Errorf("confirmation failed: %w", err)
-			}
-			if !confirmed {
-				return fmt.Errorf("removal cancelled")
-			}
-		}
-
-		// Remove the item
-		return tm.RemoveItem(index)
-	})
-
+	tm, err := NewTaskManager(filePath)
 	if err != nil {
 		return err
+	}
+
+	// Get the item before removing it (for confirmation message)
+	item, err := tm.GetItem(index)
+	if err != nil {
+		return err
+	}
+
+	// Store the item details before removal to avoid pointer issues
+	itemContent = item.Content
+	itemType = "task"
+	if item.Type == TypeSection {
+		itemType = "section"
+	}
+
+	// Check if confirmation is needed
+	if !force {
+		itemDesc := fmt.Sprintf("%s %d: %s", itemType, id, itemContent)
+		if item.Type == TypeSection {
+			// Count children that will be removed
+			childCount := 0
+			for i := index + 1; i < len(tm.Items); i++ {
+				nextItem := tm.Items[i]
+				if nextItem.Type == TypeSection && nextItem.Level <= item.Level {
+					break
+				}
+				childCount++
+			}
+			if childCount > 0 {
+				itemDesc = fmt.Sprintf("%s %d: %s (and %d child items)", itemType, id, itemContent, childCount)
+			}
+		}
+
+		confirmed, err := confirmRemoval(itemDesc)
+		if err != nil {
+			return fmt.Errorf("confirmation failed: %w", err)
+		}
+		if !confirmed {
+			return fmt.Errorf("removal cancelled")
+		}
+	}
+
+	// Remove the item
+	if err := tm.RemoveItem(index); err != nil {
+		return err
+	}
+
+	if err := tm.Save(); err != nil {
+		return fmt.Errorf("saving file: %w", err)
 	}
 
 	fmt.Printf("Removed %s %d: %s\n", itemType, id, itemContent)
@@ -697,7 +706,7 @@ func handleEdit(filePath string, args []string) error {
 	id := index + 1 // Keep original ID for display
 
 	// Load TaskManager to get the line number
-	tm, err := createAndLoadTaskManager(filePath)
+	tm, err := NewTaskManager(filePath)
 	if err != nil {
 		return fmt.Errorf("loading file: %w", err)
 	}

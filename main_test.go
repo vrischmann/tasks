@@ -846,15 +846,15 @@ func TestSaveToFile_ErrorHandling(t *testing.T) {
 	})
 }
 
-// TestCreateAndLoadTaskManager tests the helper function
-func TestCreateAndLoadTaskManager(t *testing.T) {
+// TestNewTaskManager tests the helper function
+func TestNewTaskManager(t *testing.T) {
 	t.Run("successful load", func(t *testing.T) {
 		content := `# Test Section
 - [ ] Test task
 `
 		filename := createTestFile(t, content)
 
-		tm, err := createAndLoadTaskManager(filename)
+		tm, err := NewTaskManager(filename)
 		require.NoError(t, err)
 		require.NotNil(t, tm)
 		require.Len(t, tm.Items, 2)
@@ -863,103 +863,10 @@ func TestCreateAndLoadTaskManager(t *testing.T) {
 	})
 
 	t.Run("file not found", func(t *testing.T) {
-		tm, err := createAndLoadTaskManager("/nonexistent/file.md")
+		tm, err := NewTaskManager("/nonexistent/file.md")
 		require.Error(t, err)
 		require.Nil(t, tm)
 		require.Contains(t, err.Error(), "error loading file")
-	})
-}
-
-// TestSaveTaskManager tests the helper function
-func TestSaveTaskManager(t *testing.T) {
-	t.Run("successful save", func(t *testing.T) {
-		filename := createTestFile(t, "# Initial\n")
-		tm := &TaskManager{FilePath: filename}
-
-		err := tm.Load()
-		require.NoError(t, err)
-
-		err = tm.AddTask("New Task", -1)
-		require.NoError(t, err)
-
-		err = saveTaskManager(tm)
-		require.NoError(t, err)
-
-		// Verify file was saved
-		tm2 := &TaskManager{FilePath: filename}
-		err = tm2.Load()
-		require.NoError(t, err)
-		require.Len(t, tm2.Items, 2)
-	})
-
-	t.Run("save error", func(t *testing.T) {
-		tm := &TaskManager{
-			FilePath: "/invalid/path/test.md",
-			Items:    []Item{{Type: TypeSection, Level: 1, Content: "Test"}},
-		}
-
-		err := saveTaskManager(tm)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "error saving file")
-	})
-}
-
-// TestWithTaskManager tests the complete workflow helper
-func TestWithTaskManager(t *testing.T) {
-	t.Run("successful operation", func(t *testing.T) {
-		filename := createTestFile(t, "# Section\n- [ ] Task\n")
-
-		err := withTaskManager(filename, func(tm *TaskManager) error {
-			require.Len(t, tm.Items, 2)
-			return tm.AddTask("Added Task", -1)
-		})
-
-		require.NoError(t, err)
-
-		// Verify changes were saved
-		tm := &TaskManager{FilePath: filename}
-		err = tm.Load()
-		require.NoError(t, err)
-		require.Len(t, tm.Items, 3)
-		require.Equal(t, "Added Task", tm.Items[2].Content)
-	})
-
-	t.Run("load error", func(t *testing.T) {
-		err := withTaskManager("/nonexistent/file.md", func(tm *TaskManager) error {
-			return nil
-		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to open file")
-	})
-
-	t.Run("operation error", func(t *testing.T) {
-		filename := createTestFile(t, "# Section\n")
-
-		err := withTaskManager(filename, func(tm *TaskManager) error {
-			return fmt.Errorf("operation failed")
-		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "operation failed")
-	})
-
-	t.Run("save error", func(t *testing.T) {
-		// Create a temp directory and file
-		filename := createTestFile(t, "# Section\n")
-
-		// Make the file read-only after loading
-		defer func() {
-			_ = os.Chmod(filename, 0o644)
-		}()
-
-		err := os.Chmod(filename, 0o444)
-		if err != nil {
-			t.Skip("Cannot test file permission changes on this system")
-		}
-
-		err = withTaskManager(filename, func(tm *TaskManager) error {
-			return tm.AddTask("New Task", -1)
-		})
-		require.Error(t, err)
 	})
 }
 
