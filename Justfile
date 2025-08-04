@@ -1,14 +1,8 @@
 build:
-	go build dev.rischmann.fr/tasks
-
-run *ARGS:
-	go run dev.rischmann.fr/tasks test.md
+	go build dev.rischmann.fr/tasks/v2
 
 watch-build:
 	watchexec --print-events -n -r -e go just build
-
-watch-run:
-	watchexec --print-events -n -r -e go just run
 
 fmt:
 	@printf "\x1b[34m===>\x1b[m  Running go fmt\n"
