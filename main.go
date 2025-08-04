@@ -56,16 +56,17 @@ func formatItem(item Item, index int) string {
 	idStr := fmt.Sprintf("%-5d", id)
 
 	var result string
-	if item.Type == TypeSection {
-		// Format section header
+
+	switch item.Type {
+	case TypeSection:
 		headerStr := strings.Repeat("#", item.Level) + " " + item.Content
 		if isTerminal() {
 			result = fmt.Sprintf("\033[33m%s\033[0m %s", idStr, headerStr)
 		} else {
 			result = fmt.Sprintf("%s %s", idStr, headerStr)
 		}
-	} else {
-		// Format task item
+
+	case TypeTask:
 		checkBox := "[ ]"
 		if item.Checked != nil && *item.Checked {
 			checkBox = "[x]"
@@ -76,7 +77,11 @@ func formatItem(item Item, index int) string {
 		} else {
 			result = fmt.Sprintf("%s %s", idStr, taskStr)
 		}
+
+	default:
+		panic(fmt.Errorf("invalid item type %v", item.Type))
 	}
+
 	return result
 }
 
