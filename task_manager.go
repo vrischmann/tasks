@@ -163,7 +163,9 @@ func saveToFile(filePath string, items []Item) error {
 
 	for i, item := range items {
 		var line string
-		if item.Type == TypeSection {
+
+		switch item.Type {
+		case TypeSection:
 			// Add empty line before section header (except for first item)
 			if i > 0 {
 				if _, err := fmt.Fprintln(file, ""); err != nil {
@@ -185,7 +187,8 @@ func saveToFile(filePath string, items []Item) error {
 					return fmt.Errorf("failed to write empty line: %w", err)
 				}
 			}
-		} else {
+
+		case TypeTask:
 			// Format task item without any indentation
 			checkBox := "[ ]"
 			if item.Checked != nil && *item.Checked {
@@ -213,7 +216,11 @@ func saveToFile(filePath string, items []Item) error {
 			if _, err := fmt.Fprintln(file, line); err != nil {
 				return fmt.Errorf("failed to write line: %w", err)
 			}
+
+		default:
+			panic(fmt.Errorf("invalid item type %v", item.Type))
 		}
+
 	}
 
 	return nil
