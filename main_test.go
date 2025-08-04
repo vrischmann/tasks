@@ -624,6 +624,416 @@ func TestSearchItems(t *testing.T) {
 // Integration tests for handleSearch would require capturing output,
 // which is more complex. These unit tests cover the core functionality.
 
+// TestTaskManager_AddSection_Complete tests both success and error cases for AddSection
+func TestTaskManager_AddSection_Complete(t *testing.T) {
+	t.Run("error cases", func(t *testing.T) {
+		testCases := []struct {
+			name        string
+			level       int
+			afterIndex  int
+			errContains string
+		}{
+			{"level zero", 0, -1, "invalid section level"},
+			{"level negative", -1, -1, "invalid section level"},
+			{"level too high", 7, -1, "invalid section level"},
+			{"afterIndex negative", 1, -2, "invalid after index"},
+			{"afterIndex too large", 1, 10, "invalid after index"},
+			{"afterIndex equals length", 1, 2, "invalid after index"},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				filename := createTestFile(t, "# Initial Section\n- [ ] Task\n")
+				tm := &TaskManager{FilePath: filename}
+				
+				err := tm.Load()
+				require.NoError(t, err)
+				require.Len(t, tm.Items, 2)
+				
+				err = tm.AddSection("Test Section", tc.level, tc.afterIndex)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.errContains)
+			})
+		}
+	})
+
+	t.Run("successful insertion at end", func(t *testing.T) {
+		filename := createTestFile(t, "# First Section\n- [ ] Task 1\n")
+		tm := &TaskManager{FilePath: filename}
+		
+		err := tm.Load()
+		require.NoError(t, err)
+		require.Len(t, tm.Items, 2)
+		
+		// Add section at the end
+		err = tm.AddSection("New Section", 2, -1)
+		require.NoError(t, err)
+		require.Len(t, tm.Items, 3)
+		require.Equal(t, "New Section", tm.Items[2].Content)
+		require.Equal(t, 2, tm.Items[2].Level)
+	})
+
+	t.Run("successful insertion after specific index", func(t *testing.T) {
+		filename := createTestFile(t, `# First Section
+- [ ] Task 1
+## Second Section
+- [ ] Task 2
+`)
+		tm := &TaskManager{FilePath: filename}
+		
+		err := tm.Load()
+		require.NoError(t, err)
+		require.Len(t, tm.Items, 4)
+		
+		// Insert section after index 1 (Task 1)
+		err = tm.AddSection("Inserted Section", 3, 1)
+		require.NoError(t, err)
+		require.Len(t, tm.Items, 5)
+		
+		// Check positions
+		require.Equal(t, "First Section", tm.Items[0].Content)
+		require.Equal(t, "Task 1", tm.Items[1].Content)
+		require.Equal(t, "Inserted Section", tm.Items[2].Content)
+		require.Equal(t, "Second Section", tm.Items[3].Content)
+		require.Equal(t, "Task 2", tm.Items[4].Content)
+		
+		// Verify the inserted section properties
+		inserted := tm.Items[2]
+		require.Equal(t, TypeSection, inserted.Type)
+		require.Equal(t, 3, inserted.Level)
+		require.Equal(t, "Inserted Section", inserted.Content)
+	})
+
+	t.Run("successful insertion at beginning", func(t *testing.T) {
+		filename := createTestFile(t, "# Existing Section\n- [ ] Task 1\n")
+		tm := &TaskManager{FilePath: filename}
+		
+		err := tm.Load()
+		require.NoError(t, err)
+		require.Len(t, tm.Items, 2)
+		
+		// Insert section at beginning (after index -1 is not valid, so use 0 for after first item)
+		err = tm.AddSection("Top Section", 1, 0)
+		require.NoError(t, err)
+		require.Len(t, tm.Items, 3)
+		
+		// Should be inserted at position 1 (after index 0)
+		require.Equal(t, "Existing Section", tm.Items[0].Content)
+		require.Equal(t, "Top Section", tm.Items[1].Content)
+		require.Equal(t, "Task 1", tm.Items[2].Content)
+	})
+
+	t.Run("insert with different levels", func(t *testing.T) {
+		filename := createTestFile(t, "# Main\n## Sub\n- [ ] Task\n")
+		tm := &TaskManager{FilePath: filename}
+		
+		err := tm.Load()
+		require.NoError(t, err)
+		require.Len(t, tm.Items, 3)
+		
+		// Test different section levels
+		levels := []int{1, 2, 3, 4, 5, 6}
+		for _, level := range levels {
+			t.Run(fmt.Sprintf("level %d", level), func(t *testing.T) {
+				tmCopy := *tm // Work with a copy
+				tmCopy.FilePath = createTestFile(t, "# Main\n## Sub\n- [ ] Task\n")
+				
+				err := tmCopy.Load()
+				require.NoError(t, err)
+				
+				err = tmCopy.AddSection(fmt.Sprintf("Level %d", level), level, 1)
+				require.NoError(t, err)
+				require.Len(t, tmCopy.Items, 4)
+				require.Equal(t, fmt.Sprintf("Level %d", level), tmCopy.Items[2].Content)
+				require.Equal(t, level, tmCopy.Items[2].Level)
+			})
+		}
+	})
+}
+
+// TestTaskManager_AddTask_ErrorCases tests error handling in AddTask
+func TestTaskManager_AddTask_ErrorCases(t *testing.T) {
+	filename := createTestFile(t, "# Test\n- [ ] Task 1\n")
+	tm := &TaskManager{FilePath: filename}
+	
+	err := tm.Load()
+	require.NoError(t, err)
+	require.Len(t, tm.Items, 2)
+
+	testCases := []struct {
+		name        string
+		afterIndex  int
+		errContains string
+	}{
+		{"negative afterIndex", -2, "invalid after index"},
+		{"afterIndex too large", 10, "invalid after index"},
+		{"afterIndex equals length", 2, "invalid after index"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tm.AddTask("Test Task", tc.afterIndex)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.errContains)
+		})
+	}
+}
+
+// TestTaskManager_Load_ErrorHandling tests error cases in Load method
+func TestTaskManager_Load_ErrorHandling(t *testing.T) {
+	t.Run("non-existent file", func(t *testing.T) {
+		tm := &TaskManager{FilePath: "/nonexistent/file.md"}
+		err := tm.Load()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to open file")
+	})
+
+	t.Run("malformed markdown", func(t *testing.T) {
+		// Create file with content that might cause issues
+		filename := createTestFile(t, "# Valid section\nInvalid task format\n")
+		tm := &TaskManager{FilePath: filename}
+		
+		// Should not error, just skip invalid lines
+		err := tm.Load()
+		require.NoError(t, err)
+		require.Len(t, tm.Items, 1) // Only the valid section
+	})
+}
+
+// TestTaskManager_Save_ErrorHandling tests error cases in Save method
+func TestTaskManager_Save_ErrorHandling(t *testing.T) {
+	tm := &TaskManager{
+		FilePath: "/invalid/path/readonly/file.md",
+		Items: []Item{
+			{Type: TypeSection, Level: 1, Content: "Test"},
+		},
+	}
+	
+	err := tm.Save()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to create file")
+}
+
+// TestSaveToFile_ErrorHandling tests error cases in saveToFile function
+func TestSaveToFile_ErrorHandling(t *testing.T) {
+	items := []Item{
+		{Type: TypeSection, Level: 1, Content: "Test Section"},
+		{Type: TypeTask, Content: "Test Task", Checked: func() *bool { b := false; return &b }()},
+	}
+
+	t.Run("invalid directory path", func(t *testing.T) {
+		err := saveToFile("/invalid/path/does/not/exist.md", items)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create file")
+	})
+
+	t.Run("readonly directory", func(t *testing.T) {
+		// Create a read-only temporary directory
+		tmpDir, err := os.MkdirTemp("", "readonly-test")
+		require.NoError(t, err)
+		defer os.RemoveAll(tmpDir)
+		
+		// Make directory read-only
+		err = os.Chmod(tmpDir, 0o444)
+		if err == nil {
+			defer os.Chmod(tmpDir, 0o755) // Restore permissions
+			
+			err = saveToFile(tmpDir+"/test.md", items)
+			require.Error(t, err)
+		} else {
+			t.Skip("Cannot test readonly directory on this system")
+		}
+	})
+}
+
+// TestCreateAndLoadTaskManager tests the helper function
+func TestCreateAndLoadTaskManager(t *testing.T) {
+	t.Run("successful load", func(t *testing.T) {
+		content := `# Test Section
+- [ ] Test task
+`
+		filename := createTestFile(t, content)
+		
+		tm, err := createAndLoadTaskManager(filename)
+		require.NoError(t, err)
+		require.NotNil(t, tm)
+		require.Len(t, tm.Items, 2)
+		require.Equal(t, "Test Section", tm.Items[0].Content)
+		require.Equal(t, "Test task", tm.Items[1].Content)
+	})
+
+	t.Run("file not found", func(t *testing.T) {
+		tm, err := createAndLoadTaskManager("/nonexistent/file.md")
+		require.Error(t, err)
+		require.Nil(t, tm)
+		require.Contains(t, err.Error(), "error loading file")
+	})
+}
+
+// TestSaveTaskManager tests the helper function
+func TestSaveTaskManager(t *testing.T) {
+	t.Run("successful save", func(t *testing.T) {
+		filename := createTestFile(t, "# Initial\n")
+		tm := &TaskManager{FilePath: filename}
+		
+		err := tm.Load()
+		require.NoError(t, err)
+		
+		err = tm.AddTask("New Task", -1)
+		require.NoError(t, err)
+		
+		err = saveTaskManager(tm)
+		require.NoError(t, err)
+		
+		// Verify file was saved
+		tm2 := &TaskManager{FilePath: filename}
+		err = tm2.Load()
+		require.NoError(t, err)
+		require.Len(t, tm2.Items, 2)
+	})
+
+	t.Run("save error", func(t *testing.T) {
+		tm := &TaskManager{
+			FilePath: "/invalid/path/test.md",
+			Items:    []Item{{Type: TypeSection, Level: 1, Content: "Test"}},
+		}
+		
+		err := saveTaskManager(tm)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error saving file")
+	})
+}
+
+// TestWithTaskManager tests the complete workflow helper
+func TestWithTaskManager(t *testing.T) {
+	t.Run("successful operation", func(t *testing.T) {
+		filename := createTestFile(t, "# Section\n- [ ] Task\n")
+		
+		err := withTaskManager(filename, func(tm *TaskManager) error {
+			require.Len(t, tm.Items, 2)
+			return tm.AddTask("Added Task", -1)
+		})
+		
+		require.NoError(t, err)
+		
+		// Verify changes were saved
+		tm := &TaskManager{FilePath: filename}
+		err = tm.Load()
+		require.NoError(t, err)
+		require.Len(t, tm.Items, 3)
+		require.Equal(t, "Added Task", tm.Items[2].Content)
+	})
+
+	t.Run("load error", func(t *testing.T) {
+		err := withTaskManager("/nonexistent/file.md", func(tm *TaskManager) error {
+			return nil
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to open file")
+	})
+
+	t.Run("operation error", func(t *testing.T) {
+		filename := createTestFile(t, "# Section\n")
+		
+		err := withTaskManager(filename, func(tm *TaskManager) error {
+			return fmt.Errorf("operation failed")
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "operation failed")
+	})
+
+	t.Run("save error", func(t *testing.T) {
+		// Create a temp directory and file
+		filename := createTestFile(t, "# Section\n")
+		
+		// Make the file read-only after loading
+		defer func() {
+			_ = os.Chmod(filename, 0o644)
+		}()
+		
+		err := os.Chmod(filename, 0o444)
+		if err != nil {
+			t.Skip("Cannot test file permission changes on this system")
+		}
+		
+		err = withTaskManager(filename, func(tm *TaskManager) error {
+			return tm.AddTask("New Task", -1)
+		})
+		require.Error(t, err)
+	})
+}
+
+// TestMetadataRoundTrip tests that metadata survives save/load cycles
+func TestMetadataRoundTrip(t *testing.T) {
+	filename := createTestFile(t, "# Section\n")
+	
+	tm := &TaskManager{FilePath: filename}
+	err := tm.Load()
+	require.NoError(t, err)
+	
+	// Add task with metadata
+	task := Item{
+		Type:    TypeTask,
+		Content: "Task with metadata",
+		Checked: func() *bool { b := false; return &b }(),
+		Metadata: map[string]string{
+			"priority": "high",
+			"due":      "2024-12-25",
+			"assignee": "test user",
+			"tag":      "important",
+		},
+	}
+	
+	tm.Items = append(tm.Items, task)
+	err = tm.Save()
+	require.NoError(t, err)
+	
+	// Load and verify
+	tm2 := &TaskManager{FilePath: filename}
+	err = tm2.Load()
+	require.NoError(t, err)
+	require.Len(t, tm2.Items, 2)
+	
+	savedTask := tm2.Items[1]
+	require.Equal(t, "Task with metadata", savedTask.Content)
+	require.Equal(t, "high", savedTask.Metadata["priority"])
+	require.Equal(t, "2024-12-25", savedTask.Metadata["due"])
+	require.Equal(t, "test user", savedTask.Metadata["assignee"])
+	require.Equal(t, "important", savedTask.Metadata["tag"])
+}
+
+// TestSaveToFile_MetadataQuoting tests metadata value quoting
+func TestSaveToFile_MetadataQuoting(t *testing.T) {
+	items := []Item{
+		{
+			Type:    TypeTask,
+			Content: "Test task",
+			Checked: func() *bool { b := false; return &b }(),
+			Metadata: map[string]string{
+				"nospace":  "value",
+				"withspace": "value with spaces",
+				"withquotes": `value with "quotes"`,
+				"withcolon": "value:with:colons",
+			},
+		},
+	}
+	
+	filename := createTestFile(t, "# Section\n")
+	
+	err := saveToFile(filename, items)
+	require.NoError(t, err)
+	
+	// Read the file and check content
+	content, err := os.ReadFile(filename)
+	require.NoError(t, err)
+	
+	fileContent := string(content)
+	require.Contains(t, fileContent, "nospace:value")
+	require.Contains(t, fileContent, `"value with spaces"`)
+	require.Contains(t, fileContent, `"value with \"quotes\""`)
+	require.Contains(t, fileContent, "withcolon:value:with:colons")
+}
+
 // Tests for parseItemID function (currently 0% coverage)
 func TestParseItemID(t *testing.T) {
 	t.Run("valid IDs", func(t *testing.T) {
