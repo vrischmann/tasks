@@ -16,6 +16,8 @@ builds:
       - amd64
       - arm64
     binary: tasks
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.CommitDate}}
 
 archives:
   - formats: ['tar.gz']
