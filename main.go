@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
-	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -38,118 +37,47 @@ type Item struct {
 	Metadata   map[string]string // Task metadata (nil for sections)
 }
 
-// TaskManager handles loading, modifying, and saving markdown files
-type TaskManager struct {
-	FilePath string
-	Items    []Item
+// parseItemID parses a string ID and converts it to 0-based index
+func parseItemID(idStr string) (int, error) {
+	var id int
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+		return -1, fmt.Errorf("invalid ID '%s'", idStr)
+	}
+	if id < 1 {
+		return -1, fmt.Errorf("ID must be greater than 0")
+	}
+	return id - 1, nil // Convert to 0-based
 }
 
-// Load reads and parses the markdown file
-func (tm *TaskManager) Load() error {
-	items, err := parseMarkdownFile(tm.FilePath)
-	if err != nil {
-		return err
-	}
-	tm.Items = items
-	return nil
-}
+// formatItem formats an item for display with optional terminal colors
+func formatItem(item Item, index int) string {
+	// 1-based indexing for user-facing IDs
+	id := index + 1
+	idStr := fmt.Sprintf("%-5d", id)
 
-// Save writes the current items back to the file
-func (tm *TaskManager) Save() error {
-	return saveToFile(tm.FilePath, tm.Items)
-}
-
-// GetItem returns the item at the specified index (0-based)
-func (tm *TaskManager) GetItem(index int) (*Item, error) {
-	if index < 0 || index >= len(tm.Items) {
-		return nil, fmt.Errorf("invalid item index: %d", index)
-	}
-	return &tm.Items[index], nil
-}
-
-// ToggleTask marks a task as completed or incomplete
-func (tm *TaskManager) ToggleTask(index int, completed bool) error {
-	item, err := tm.GetItem(index)
-	if err != nil {
-		return err
-	}
-
-	if item.Type != TypeTask {
-		return fmt.Errorf("item at index %d is not a task", index)
-	}
-
-	*item.Checked = completed
-	return nil
-}
-
-// RemoveItem removes an item and its children from the list
-func (tm *TaskManager) RemoveItem(index int) error {
-	if index < 0 || index >= len(tm.Items) {
-		return fmt.Errorf("invalid item index: %d", index)
-	}
-
-	tm.Items = deleteItem(tm.Items, index)
-	return nil
-}
-
-// AddTask adds a new task to the list
-func (tm *TaskManager) AddTask(content string, afterIndex int) error {
-	newTask := Item{
-		Type:       TypeTask,
-		Level:      0, // Default to no indentation
-		Content:    content,
-		Checked:    func() *bool { b := false; return &b }(),
-		LineNumber: 0,   // Will be set to proper value when saved
-		Metadata:   nil, // No metadata by default
-	}
-
-	if afterIndex == -1 {
-		// Add at the end
-		tm.Items = append(tm.Items, newTask)
-	} else {
-		// Insert after the specified index
-		if afterIndex < 0 || afterIndex >= len(tm.Items) {
-			return fmt.Errorf("invalid after index: %d", afterIndex)
+	var result string
+	if item.Type == TypeSection {
+		// Format section header
+		headerStr := strings.Repeat("#", item.Level) + " " + item.Content
+		if isTerminal() {
+			result = fmt.Sprintf("\033[33m%s\033[0m %s", idStr, headerStr)
+		} else {
+			result = fmt.Sprintf("%s %s", idStr, headerStr)
 		}
-
-		// Insert at afterIndex + 1
-		insertPos := afterIndex + 1
-		tm.Items = slices.Insert(tm.Items, insertPos, newTask)
-	}
-
-	return nil
-}
-
-// AddSection adds a new section to the list
-func (tm *TaskManager) AddSection(content string, level int, afterIndex int) error {
-	if level < 1 || level > 6 {
-		return fmt.Errorf("invalid section level: %d (must be 1-6)", level)
-	}
-
-	newSection := Item{
-		Type:       TypeSection,
-		Level:      level,
-		Content:    content,
-		Checked:    nil,
-		LineNumber: 0,   // Will be set to proper value when saved
-		Metadata:   nil, // Sections don't have metadata
-	}
-
-	if afterIndex == -1 {
-		// Add at the end
-		tm.Items = append(tm.Items, newSection)
 	} else {
-		// Insert after the specified index
-		if afterIndex < 0 || afterIndex >= len(tm.Items) {
-			return fmt.Errorf("invalid after index: %d", afterIndex)
+		// Format task item
+		checkBox := "[ ]"
+		if item.Checked != nil && *item.Checked {
+			checkBox = "[x]"
 		}
-
-		// Insert at afterIndex + 1
-		insertPos := afterIndex + 1
-		tm.Items = slices.Insert(tm.Items, insertPos, newSection)
+		taskStr := "- " + checkBox + " " + item.Content
+		if isTerminal() {
+			result = fmt.Sprintf("\033[33m%s\033[0m %s", idStr, taskStr)
+		} else {
+			result = fmt.Sprintf("%s %s", idStr, taskStr)
+		}
 	}
-
-	return nil
+	return result
 }
 
 // parseMarkdownFile reads a markdown file and extracts tasks and sections
@@ -384,72 +312,6 @@ func searchItems(items []Item, queries []string) []SearchResult {
 	return results
 }
 
-// saveToFile writes the items back to the markdown file
-func saveToFile(filePath string, items []Item) error {
-	file, err := os.Create(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-	defer file.Close()
-
-	for i, item := range items {
-		var line string
-		if item.Type == TypeSection {
-			// Add empty line before section header (except for first item)
-			if i > 0 {
-				if _, err := fmt.Fprintln(file, ""); err != nil {
-					return fmt.Errorf("failed to write empty line: %w", err)
-				}
-			}
-
-			// Format section header
-			line = strings.Repeat("#", item.Level) + " " + item.Content
-
-			// Write the section header
-			if _, err := fmt.Fprintln(file, line); err != nil {
-				return fmt.Errorf("failed to write line: %w", err)
-			}
-
-			// Add empty line after section header (if not last item and next item is not a section)
-			if i < len(items)-1 && items[i+1].Type != TypeSection {
-				if _, err := fmt.Fprintln(file, ""); err != nil {
-					return fmt.Errorf("failed to write empty line: %w", err)
-				}
-			}
-		} else {
-			// Format task item without any indentation
-			checkBox := "[ ]"
-			if item.Checked != nil && *item.Checked {
-				checkBox = "[x]"
-			}
-
-			// Build the content with metadata
-			content := item.Content
-			if len(item.Metadata) > 0 {
-				// Add metadata to the end of the content in sorted order
-				keys := slices.Sorted(maps.Keys(item.Metadata))
-				for _, key := range keys {
-					value := item.Metadata[key]
-					// Quote values that contain spaces
-					if strings.Contains(value, " ") {
-						value = `"` + strings.ReplaceAll(value, `"`, `\"`) + `"`
-					}
-					content += " " + key + ":" + value
-				}
-			}
-
-			line = "- " + checkBox + " " + content
-
-			// Write the task
-			if _, err := fmt.Fprintln(file, line); err != nil {
-				return fmt.Errorf("failed to write line: %w", err)
-			}
-		}
-	}
-
-	return nil
-}
-
 // getVersion returns version information from build info
 func getVersion() string {
 	info, ok := debug.ReadBuildInfo()
@@ -578,32 +440,7 @@ func handleList(filePath string) {
 	}
 
 	for i, item := range items {
-		// 1-based indexing for user-facing IDs
-		id := i + 1
-
-		if item.Type == TypeSection {
-			// Format section header without any indentation
-			idStr := fmt.Sprintf("%-5d", id)
-			if isTerminal() {
-				// Color the ID yellow in interactive terminals
-				fmt.Printf("\033[33m%s\033[0m %s %s\n", idStr, strings.Repeat("#", item.Level), item.Content)
-			} else {
-				fmt.Printf("%s %s %s\n", idStr, strings.Repeat("#", item.Level), item.Content)
-			}
-		} else {
-			// Format task item without any indentation
-			checkBox := "[ ]"
-			if item.Checked != nil && *item.Checked {
-				checkBox = "[x]"
-			}
-			idStr := fmt.Sprintf("%-5d", id)
-			if isTerminal() {
-				// Color the ID yellow in interactive terminals
-				fmt.Printf("\033[33m%s\033[0m - %s %s\n", idStr, checkBox, item.Content)
-			} else {
-				fmt.Printf("%s - %s %s\n", idStr, checkBox, item.Content)
-			}
-		}
+		fmt.Println(formatItem(item, i))
 	}
 }
 
@@ -716,30 +553,21 @@ func handleDone(filePath string, args []string) {
 		os.Exit(1)
 	}
 
-	// Parse the ID (convert from 1-based to 0-based)
-	var id int
-	if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
-		fmt.Printf("Error: invalid ID '%s'\n", args[0])
-		os.Exit(1)
-	}
-	index := id - 1 // Convert to 0-based
-
-	// Create TaskManager and load items
-	tm := &TaskManager{FilePath: filePath}
-	if err := tm.Load(); err != nil {
-		fmt.Printf("Error loading file: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Toggle the task to completed
-	if err := tm.ToggleTask(index, true); err != nil {
+	// Parse the ID
+	index, err := parseItemID(args[0])
+	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
+	id := index + 1 // Keep original ID for display
 
-	// Save the changes
-	if err := tm.Save(); err != nil {
-		fmt.Printf("Error saving file: %v\n", err)
+	// Use withTaskManager to handle load-operation-save pattern
+	err = withTaskManager(filePath, func(tm *TaskManager) error {
+		return tm.ToggleTask(index, true)
+	})
+
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -753,30 +581,21 @@ func handleUndo(filePath string, args []string) {
 		os.Exit(1)
 	}
 
-	// Parse the ID (convert from 1-based to 0-based)
-	var id int
-	if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
-		fmt.Printf("Error: invalid ID '%s'\n", args[0])
-		os.Exit(1)
-	}
-	index := id - 1 // Convert to 0-based
-
-	// Create TaskManager and load items
-	tm := &TaskManager{FilePath: filePath}
-	if err := tm.Load(); err != nil {
-		fmt.Printf("Error loading file: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Toggle the task to incomplete
-	if err := tm.ToggleTask(index, false); err != nil {
+	// Parse the ID
+	index, err := parseItemID(args[0])
+	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
+	id := index + 1 // Keep original ID for display
 
-	// Save the changes
-	if err := tm.Save(); err != nil {
-		fmt.Printf("Error saving file: %v\n", err)
+	// Use withTaskManager to handle load-operation-save pattern
+	err = withTaskManager(filePath, func(tm *TaskManager) error {
+		return tm.ToggleTask(index, false)
+	})
+
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -790,44 +609,39 @@ func handleRemove(filePath string, args []string) {
 		os.Exit(1)
 	}
 
-	// Parse the ID (convert from 1-based to 0-based)
-	var id int
-	if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
-		fmt.Printf("Error: invalid ID '%s'\n", args[0])
-		os.Exit(1)
-	}
-	index := id - 1 // Convert to 0-based
-
-	// Create TaskManager and load items
-	tm := &TaskManager{FilePath: filePath}
-	if err := tm.Load(); err != nil {
-		fmt.Printf("Error loading file: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Get the item before removing it (for confirmation message)
-	item, err := tm.GetItem(index)
+	// Parse the ID
+	index, err := parseItemID(args[0])
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
+	id := index + 1 // Keep original ID for display
 
-	// Store the item details before removal to avoid pointer issues
-	itemContent := item.Content
-	itemType := "task"
-	if item.Type == TypeSection {
-		itemType = "section"
-	}
+	// Variables to capture item details before removal
+	var itemContent string
+	var itemType string
 
-	// Remove the item
-	if err := tm.RemoveItem(index); err != nil {
+	// Use withTaskManager to handle load-operation-save pattern
+	err = withTaskManager(filePath, func(tm *TaskManager) error {
+		// Get the item before removing it (for confirmation message)
+		item, err := tm.GetItem(index)
+		if err != nil {
+			return err
+		}
+
+		// Store the item details before removal to avoid pointer issues
+		itemContent = item.Content
+		itemType = "task"
+		if item.Type == TypeSection {
+			itemType = "section"
+		}
+
+		// Remove the item
+		return tm.RemoveItem(index)
+	})
+
+	if err != nil {
 		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Save the changes
-	if err := tm.Save(); err != nil {
-		fmt.Printf("Error saving file: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -841,18 +655,18 @@ func handleEdit(filePath string, args []string) {
 		os.Exit(1)
 	}
 
-	// Parse the ID (convert from 1-based to 0-based)
-	var id int
-	if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
-		fmt.Printf("Error: invalid ID '%s'\n", args[0])
+	// Parse the ID
+	index, err := parseItemID(args[0])
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-	index := id - 1 // Convert to 0-based
+	id := index + 1 // Keep original ID for display
 
-	// Load items to get the actual line number
-	tm := &TaskManager{FilePath: filePath}
-	if err := tm.Load(); err != nil {
-		fmt.Printf("Error loading file: %v\n", err)
+	// Load TaskManager to get the line number
+	tm, err := createAndLoadTaskManager(filePath)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -930,33 +744,7 @@ func handleSearch(filePath string, args []string) {
 	fmt.Println()
 
 	for _, result := range results {
-		// 1-based indexing for user-facing IDs
-		id := result.Index + 1
-		item := result.Item
-
-		if item.Type == TypeSection {
-			// Format section header without any indentation
-			idStr := fmt.Sprintf("%-5d", id)
-			if isTerminal() {
-				// Color the ID yellow in interactive terminals
-				fmt.Printf("\033[33m%s\033[0m %s %s\n", idStr, strings.Repeat("#", item.Level), item.Content)
-			} else {
-				fmt.Printf("%s %s %s\n", idStr, strings.Repeat("#", item.Level), item.Content)
-			}
-		} else {
-			// Format task item without any indentation
-			checkBox := "[ ]"
-			if item.Checked != nil && *item.Checked {
-				checkBox = "[x]"
-			}
-			idStr := fmt.Sprintf("%-5d", id)
-			if isTerminal() {
-				// Color the ID yellow in interactive terminals
-				fmt.Printf("\033[33m%s\033[0m - %s %s\n", idStr, checkBox, item.Content)
-			} else {
-				fmt.Printf("%s - %s %s\n", idStr, checkBox, item.Content)
-			}
-		}
+		fmt.Println(formatItem(result.Item, result.Index))
 	}
 }
 
