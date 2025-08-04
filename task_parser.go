@@ -218,10 +218,6 @@ func (p *TaskParser) parseWord() string {
 		p.pos++
 	}
 
-	if p.pos == start {
-		return ""
-	}
-
 	return p.input[start:p.pos]
 }
 

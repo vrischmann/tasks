@@ -303,6 +303,7 @@ func TestParseContent_EdgeCases(t *testing.T) {
 		require.False(t, result.Completed)
 		require.Empty(t, result.Metadata)
 	})
+
 }
 
 func TestParseTask_RealWorldExamples(t *testing.T) {
