@@ -65,8 +65,8 @@ jobs:
           sed -i "/else/,/end/ s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/tasks_${VERSION}_darwin_arm64.tar.gz\"|" "$FORMULA_FILE"
           sed -i "/else/,/end/ s/sha256 \"[a-f0-9]*\"/sha256 \"${ARM64_SHA}\"/" "$FORMULA_FILE"
 
-          echo "--- Formula content after update ---"
-          cat "$FORMULA_FILE"
+          # Cleanup
+          rm checksums.txt
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
