@@ -16,6 +16,12 @@ A stateless, Unix-friendly command-line tool for managing tasks stored in markdo
 ### Prerequisites
 - Go 1.24.5 or later
 
+### macOS (Homebrew)
+```bash
+brew tap vrischmann/tap
+brew install tasks
+```
+
 ### Install with Go
 ```bash
 go install dev.rischmann.fr/tasks@latest
@@ -63,10 +69,10 @@ go build
 ```
 
 ### Fish Shell Quick Setup
-If you use Fish shell, get enhanced functionality with one command:
+If you use Fish shell, get enhanced functionality by copying the functions:
 ```bash
-# Install Fish shell functions
-tasks install
+# Copy Fish shell functions
+cp fish/functions/*.fish ~/.config/fish/functions/
 ```
 
 See [Available Functions After Installation](#available-functions-after-installation) for the complete list of Fish functions.
@@ -140,19 +146,6 @@ Supports line positioning for:
 - emacs (`+line`)
 - VS Code (`--goto file:line`)
 
-#### `install` - Install Fish Shell Functions
-Install or update Fish shell functions to `~/.config/fish/functions/`.
-```bash
-tasks install              # Install with confirmation prompt
-tasks install --yes        # Install without confirmation
-```
-
-#### `uninstall` - Remove Fish Shell Functions
-Remove Fish shell functions that were previously installed by this tool.
-```bash
-tasks uninstall            # Uninstall with confirmation prompt
-tasks uninstall --yes      # Uninstall without confirmation
-```
 
 ## Supported Markdown Format
 
@@ -198,22 +191,8 @@ tasks done $TASK_ID
 
 ### Fish Shell Functions
 
-**Automatic Installation:**
-The easiest way to get Fish shell integration is to use the built-in install command:
-```bash
-# Install all Fish functions automatically
-tasks install
-
-# Or install without confirmation
-tasks install --yes
-```
-
-This installs helper functions that provide:
-- **Enhanced workflows** - Integrated with fzf for interactive selection
-- **Validation** - Input validation and error handling
-
 **Manual Setup:**
-If you prefer manual setup, copy all files from `fish/functions/` to your `~/.config/fish/functions/` directory:
+Copy all files from `fish/functions/` to your `~/.config/fish/functions/` directory:
 ```bash
 cp fish/functions/*.fish ~/.config/fish/functions/
 ```
