@@ -1,4 +1,4 @@
-module dev.rischmann.fr/tasks
+module dev.rischmann.fr/tasks/v2
 
 go 1.24.5
 
