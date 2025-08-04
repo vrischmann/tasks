@@ -91,7 +91,7 @@ func (p *TaskParser) parseContent(result *ParsedTask) {
 	// Parse all tokens (words and metadata)
 	for p.pos < p.len {
 		p.skipWhitespace()
-		
+
 		// Try to parse metadata key:value pair
 		if key, value, ok := p.parseMetadata(); ok {
 			result.Metadata[key] = value

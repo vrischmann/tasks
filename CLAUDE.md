@@ -69,6 +69,7 @@ tasks [--file <path>] <command> [args]
 - `undo <id>` - Mark task as incomplete
 - `rm <id>` - Remove task or section (with children)
 - `edit <id>` - Edit task or section in $EDITOR
+- `search <term> [...]` - Search tasks and sections with fuzzy matching
 - `--version` - Show version information
 
 ### Design Principles
