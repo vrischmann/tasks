@@ -269,6 +269,13 @@ func TestParseQuotedString_EdgeCases(t *testing.T) {
 		require.Equal(t, `Task with unterminated quote status:"incomplete`, result.Description)
 		require.Empty(t, result.Metadata)
 	})
+
+	t.Run("escape sequence default case", func(t *testing.T) {
+		// Test the default case in escape sequence handling (other than \", \\, \n, \t)
+		result := parseTask(`- [ ] Task with note:"text\r\x41"`)
+		require.Equal(t, "Task with", result.Description)
+		require.Equal(t, "textrx41", result.Metadata["note"]) // \r and \x41 are treated as literal characters
+	})
 }
 
 // Additional tests for parseContent coverage (whitespace handling)

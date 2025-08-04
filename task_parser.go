@@ -165,10 +165,8 @@ func (p *TaskParser) parseIdentifier() string {
 
 // parseQuotedString parses a double-quoted string with escape support
 func (p *TaskParser) parseQuotedString() string {
-	// Expect opening quote
-	if !p.expect('"') {
-		return ""
-	}
+	// Consume opening quote (guaranteed by caller)
+	p.pos++
 
 	var result strings.Builder
 
