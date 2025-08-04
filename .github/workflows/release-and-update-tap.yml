@@ -76,6 +76,6 @@ jobs:
           title: "Update tasks to version ${{ github.ref_name }}"
           body: |
             This PR was automatically generated to update the `tasks` formula to version `${{ github.ref_name }}`.
-          branch: "update/tasks-${{ github.ref_name }}"
+          branch: "update/tasks"
           delete-branch: true
 
