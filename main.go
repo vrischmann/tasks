@@ -350,6 +350,13 @@ func isTerminal() bool {
 }
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	// Define global flags
 	var showVersion bool
 	var showHelp bool
@@ -371,19 +378,19 @@ func main() {
 	// Handle version flag
 	if showVersion {
 		fmt.Printf("tasks version %s\n", getVersion())
-		return
+		return nil
 	}
 
 	// Handle help flag
 	if showHelp {
 		printUsage()
-		return
+		return nil
 	}
 
 	args := flag.Args()
 	if len(args) < 1 {
 		printUsage()
-		os.Exit(1)
+		return fmt.Errorf("no command provided")
 	}
 
 	cmd := args[0]
@@ -391,23 +398,22 @@ func main() {
 
 	switch cmd {
 	case "ls":
-		handleList(filePath)
+		return handleList(filePath)
 	case "add":
-		handleAdd(filePath, cmdArgs)
+		return handleAdd(filePath, cmdArgs)
 	case "done":
-		handleDone(filePath, cmdArgs)
+		return handleDone(filePath, cmdArgs)
 	case "undo":
-		handleUndo(filePath, cmdArgs)
+		return handleUndo(filePath, cmdArgs)
 	case "rm":
-		handleRemove(filePath, cmdArgs)
+		return handleRemove(filePath, cmdArgs)
 	case "edit":
-		handleEdit(filePath, cmdArgs)
+		return handleEdit(filePath, cmdArgs)
 	case "search":
-		handleSearch(filePath, cmdArgs)
+		return handleSearch(filePath, cmdArgs)
 	default:
-		fmt.Printf("Unknown command: %s\n", cmd)
 		printUsage()
-		os.Exit(1)
+		return fmt.Errorf("unknown command: %s", cmd)
 	}
 }
 
@@ -419,7 +425,7 @@ func printUsage() {
 	fmt.Println("  add [flags] <text>    Add a new task or section")
 	fmt.Println("  done <id>             Mark task as completed")
 	fmt.Println("  undo <id>             Mark task as incomplete")
-	fmt.Println("  rm <id>               Remove task or section")
+	fmt.Println("  rm <id>               Remove task or section (with confirmation)")
 	fmt.Println("  edit <id>             Edit task or section in $EDITOR")
 	fmt.Println("  search <term> [...]   Search tasks and sections with fuzzy matching")
 	fmt.Println("")
@@ -431,21 +437,21 @@ func printUsage() {
 	fmt.Println("Use 'tasks add --help' for detailed add command options.")
 }
 
-func handleList(filePath string) {
+func handleList(filePath string) error {
 	items, err := parseMarkdownFile(filePath)
 	if err != nil {
-		fmt.Printf("Error reading file: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("reading file: %w", err)
 	}
 
 	for i, item := range items {
 		fmt.Println(formatItem(item, i))
 	}
+	return nil
 }
 
-func handleAdd(filePath string, args []string) {
+func handleAdd(filePath string, args []string) error {
 	// Create a new flag set for the add command
-	addFlags := flag.NewFlagSet("add", flag.ExitOnError)
+	addFlags := flag.NewFlagSet("add", flag.ContinueOnError)
 	isSection := addFlags.Bool("section", false, "Add a section instead of a task")
 	sectionLevel := addFlags.Int("level", 1, "Section level (1-6) when adding a section")
 	afterID := addFlags.Int("after", 0, "Add after the specified item ID (1-based)")
@@ -472,42 +478,37 @@ func handleAdd(filePath string, args []string) {
 
 	// Parse the flags
 	if err := addFlags.Parse(args); err != nil {
-		os.Exit(1)
+		return err
 	}
 
 	// Check if help was requested
 	if *showHelp {
 		addFlags.Usage()
-		return
+		return nil
 	}
 
 	// Get remaining arguments (the content)
 	content := strings.Join(addFlags.Args(), " ")
 	if content == "" {
-		fmt.Println("Error: content is required")
-		addFlags.Usage()
-		os.Exit(1)
+		return fmt.Errorf("content is required")
 	}
 
 	// Validate section level
 	if *isSection && (*sectionLevel < 1 || *sectionLevel > 6) {
-		fmt.Printf("Error: invalid section level %d (must be 1-6)\n", *sectionLevel)
-		os.Exit(1)
+		return fmt.Errorf("invalid section level %d (must be 1-6)", *sectionLevel)
 	}
 
 	// Create TaskManager and load items
 	tm := &TaskManager{FilePath: filePath}
 	if err := tm.Load(); err != nil {
-		fmt.Printf("Error loading file: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("loading file: %w", err)
 	}
 
 	// Convert afterID to 0-based index (-1 means append at end)
 	afterIndex := -1
 	if *afterID > 0 {
 		if *afterID > len(tm.Items) {
-			fmt.Printf("Error: item ID %d does not exist (max: %d)\n", *afterID, len(tm.Items))
-			os.Exit(1)
+			return fmt.Errorf("item ID %d does not exist (max: %d)", *afterID, len(tm.Items))
 		}
 		afterIndex = *afterID - 1 // Convert to 0-based
 	}
@@ -515,8 +516,7 @@ func handleAdd(filePath string, args []string) {
 	if *isSection {
 		// Add a section
 		if err := tm.AddSection(content, *sectionLevel, afterIndex); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
+			return err
 		}
 
 		if *afterID > 0 {
@@ -527,8 +527,7 @@ func handleAdd(filePath string, args []string) {
 	} else {
 		// Add a task
 		if err := tm.AddTask(content, afterIndex); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
+			return err
 		}
 
 		if *afterID > 0 {
@@ -540,23 +539,20 @@ func handleAdd(filePath string, args []string) {
 
 	// Save the changes
 	if err := tm.Save(); err != nil {
-		fmt.Printf("Error saving file: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("saving file: %w", err)
 	}
+	return nil
 }
 
-func handleDone(filePath string, args []string) {
+func handleDone(filePath string, args []string) error {
 	if len(args) < 1 {
-		fmt.Println("Error: done command requires an item ID")
-		fmt.Println("Usage: tasks done <id>")
-		os.Exit(1)
+		return fmt.Errorf("done command requires an item ID")
 	}
 
 	// Parse the ID
 	index, err := parseItemID(args[0])
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 	id := index + 1 // Keep original ID for display
 
@@ -566,25 +562,36 @@ func handleDone(filePath string, args []string) {
 	})
 
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	fmt.Printf("Marked task %d as completed\n", id)
+	return nil
 }
 
-func handleUndo(filePath string, args []string) {
+// confirmRemoval prompts the user for confirmation before removing an item
+func confirmRemoval(itemDesc string) (bool, error) {
+	fmt.Printf("Remove %s? [y/N] ", itemDesc)
+
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return false, err
+	}
+
+	input = strings.TrimSpace(strings.ToLower(input))
+	return input == "y" || input == "yes", nil
+}
+
+func handleUndo(filePath string, args []string) error {
 	if len(args) < 1 {
-		fmt.Println("Error: undo command requires an item ID")
-		fmt.Println("Usage: tasks undo <id>")
-		os.Exit(1)
+		return fmt.Errorf("undo command requires an item ID")
 	}
 
 	// Parse the ID
 	index, err := parseItemID(args[0])
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 	id := index + 1 // Keep original ID for display
 
@@ -594,27 +601,30 @@ func handleUndo(filePath string, args []string) {
 	})
 
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	fmt.Printf("Marked task %d as incomplete\n", id)
+	return nil
 }
 
-func handleRemove(filePath string, args []string) {
+func handleRemove(filePath string, args []string) error {
 	if len(args) < 1 {
-		fmt.Println("Error: rm command requires an item ID")
-		fmt.Println("Usage: tasks rm <id>")
-		os.Exit(1)
+		return fmt.Errorf("rm command requires an item ID")
 	}
 
 	// Parse the ID
 	index, err := parseItemID(args[0])
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 	id := index + 1 // Keep original ID for display
+
+	// Check for force flag
+	force := false
+	if len(args) > 1 && args[1] == "--force" {
+		force = true
+	}
 
 	// Variables to capture item details before removal
 	var itemContent string
@@ -635,45 +645,67 @@ func handleRemove(filePath string, args []string) {
 			itemType = "section"
 		}
 
+		// Check if confirmation is needed
+		if !force {
+			itemDesc := fmt.Sprintf("%s %d: %s", itemType, id, itemContent)
+			if item.Type == TypeSection {
+				// Count children that will be removed
+				childCount := 0
+				for i := index + 1; i < len(tm.Items); i++ {
+					nextItem := tm.Items[i]
+					if nextItem.Type == TypeSection && nextItem.Level <= item.Level {
+						break
+					}
+					childCount++
+				}
+				if childCount > 0 {
+					itemDesc = fmt.Sprintf("%s %d: %s (and %d child items)", itemType, id, itemContent, childCount)
+				}
+			}
+
+			confirmed, err := confirmRemoval(itemDesc)
+			if err != nil {
+				return fmt.Errorf("confirmation failed: %w", err)
+			}
+			if !confirmed {
+				return fmt.Errorf("removal cancelled")
+			}
+		}
+
 		// Remove the item
 		return tm.RemoveItem(index)
 	})
 
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	fmt.Printf("Removed %s %d: %s\n", itemType, id, itemContent)
+	return nil
 }
 
-func handleEdit(filePath string, args []string) {
+func handleEdit(filePath string, args []string) error {
 	if len(args) < 1 {
-		fmt.Println("Error: edit command requires an item ID")
-		fmt.Println("Usage: tasks edit <id>")
-		os.Exit(1)
+		return fmt.Errorf("edit command requires an item ID")
 	}
 
 	// Parse the ID
 	index, err := parseItemID(args[0])
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 	id := index + 1 // Keep original ID for display
 
 	// Load TaskManager to get the line number
 	tm, err := createAndLoadTaskManager(filePath)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("loading file: %w", err)
 	}
 
 	// Get the item to find its line number
 	item, err := tm.GetItem(index)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	lineNumber := item.LineNumber
@@ -709,25 +741,22 @@ func handleEdit(filePath string, args []string) {
 
 	// Run the editor
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("Error running editor: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("running editor: %w", err)
 	}
 
 	fmt.Printf("Edited item %d with %s\n", id, editor)
+	return nil
 }
 
-func handleSearch(filePath string, args []string) {
+func handleSearch(filePath string, args []string) error {
 	if len(args) < 1 {
-		fmt.Println("Error: search command requires at least one search term")
-		fmt.Println("Usage: tasks search <term1> [term2] [...]")
-		os.Exit(1)
+		return fmt.Errorf("search command requires at least one search term")
 	}
 
 	// Load items from file
 	items, err := parseMarkdownFile(filePath)
 	if err != nil {
-		fmt.Printf("Error reading file: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("reading file: %w", err)
 	}
 
 	// Perform search
@@ -735,7 +764,7 @@ func handleSearch(filePath string, args []string) {
 
 	if len(results) == 0 {
 		fmt.Printf("No matches found for: %s\n", strings.Join(args, " "))
-		return
+		return nil
 	}
 
 	// Display results
@@ -745,4 +774,5 @@ func handleSearch(filePath string, args []string) {
 	for _, result := range results {
 		fmt.Println(formatItem(result.Item, result.Index))
 	}
+	return nil
 }
