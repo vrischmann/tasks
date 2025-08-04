@@ -268,4 +268,3 @@ func TestParseTask_RealWorldExamples(t *testing.T) {
 		require.Equal(t, "in progress", result.Metadata["status"])
 	})
 }
-
