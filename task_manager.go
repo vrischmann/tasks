@@ -155,11 +155,7 @@ func withTaskManager(filePath string, operation func(*TaskManager) error) error 
 
 // saveToFile writes the items back to the markdown file
 func saveToFile(filePath string, items []Item) error {
-	file, err := os.Create(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-	defer file.Close()
+	var buf strings.Builder
 
 	for i, item := range items {
 		var line string
@@ -168,24 +164,17 @@ func saveToFile(filePath string, items []Item) error {
 		case TypeSection:
 			// Add empty line before section header (except for first item)
 			if i > 0 {
-				if _, err := fmt.Fprintln(file, ""); err != nil {
-					return fmt.Errorf("failed to write empty line: %w", err)
-				}
+				buf.WriteString("\n")
 			}
 
 			// Format section header
 			line = strings.Repeat("#", item.Level) + " " + item.Content
-
-			// Write the section header
-			if _, err := fmt.Fprintln(file, line); err != nil {
-				return fmt.Errorf("failed to write line: %w", err)
-			}
+			buf.WriteString(line)
+			buf.WriteString("\n")
 
 			// Add empty line after section header (if not last item and next item is not a section)
 			if i < len(items)-1 && items[i+1].Type != TypeSection {
-				if _, err := fmt.Fprintln(file, ""); err != nil {
-					return fmt.Errorf("failed to write empty line: %w", err)
-				}
+				buf.WriteString("\n")
 			}
 
 		case TypeTask:
@@ -211,16 +200,23 @@ func saveToFile(filePath string, items []Item) error {
 			}
 
 			line = "- " + checkBox + " " + content
-
-			// Write the task
-			if _, err := fmt.Fprintln(file, line); err != nil {
-				return fmt.Errorf("failed to write line: %w", err)
-			}
+			buf.WriteString(line)
+			buf.WriteString("\n")
 
 		default:
 			panic(fmt.Errorf("invalid item type %v", item.Type))
 		}
+	}
 
+	file, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	_, err = file.WriteString(buf.String())
+	if err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
 	}
 
 	return nil
