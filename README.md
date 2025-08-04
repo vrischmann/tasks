@@ -13,25 +13,23 @@ A stateless, Unix-friendly command-line tool for managing tasks stored in markdo
 
 ## Installation
 
-### Prerequisites
-- Go 1.24.5 or later
-
-### macOS (Homebrew)
+### Option 1: macOS (Homebrew)
 ```bash
 brew tap vrischmann/tap
 brew install tasks
 ```
 
-### Install with Go
+### Option 2: Manual Installation
+**Prerequisites:** Go 1.24.5 or later
+
 ```bash
 go install dev.rischmann.fr/tasks@latest
 ```
 
-### Build from Source
+**Fish Shell Integration (Optional):**
+If you use Fish shell, copy the functions for enhanced functionality:
 ```bash
-git clone https://github.com/vrischmann/tasks
-cd tasks
-go build
+cp fish/functions/*.fish ~/.config/fish/functions/
 ```
 
 ## Quick Start
@@ -68,14 +66,6 @@ go build
 ./tasks --file demo.md add "Try this new CLI tool"
 ```
 
-### Fish Shell Quick Setup
-If you use Fish shell, get enhanced functionality by copying the functions:
-```bash
-# Copy Fish shell functions
-cp fish/functions/*.fish ~/.config/fish/functions/
-```
-
-See [Available Functions After Installation](#available-functions-after-installation) for the complete list of Fish functions.
 
 ## CLI Reference
 
