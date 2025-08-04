@@ -58,13 +58,6 @@ tasks edit 7
 tasks rm 4
 ```
 
-### Try with Demo File
-```bash
-# Build and test with included demo
-go build
-./tasks --file demo.md ls
-./tasks --file demo.md add "Try this new CLI tool"
-```
 
 
 ## CLI Reference
