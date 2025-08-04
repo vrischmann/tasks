@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -621,3 +623,216 @@ func TestSearchItems(t *testing.T) {
 
 // Integration tests for handleSearch would require capturing output,
 // which is more complex. These unit tests cover the core functionality.
+
+// Tests for parseItemID function (currently 0% coverage)
+func TestParseItemID(t *testing.T) {
+	t.Run("valid IDs", func(t *testing.T) {
+		testCases := []struct {
+			input    string
+			expected int
+		}{
+			{"1", 0},    // 1-based to 0-based
+			{"5", 4},    // 1-based to 0-based
+			{"100", 99}, // Large number
+		}
+
+		for _, tc := range testCases {
+			result, err := parseItemID(tc.input)
+			require.NoError(t, err, "Input: %s", tc.input)
+			require.Equal(t, tc.expected, result, "Input: %s", tc.input)
+		}
+	})
+
+	t.Run("invalid IDs", func(t *testing.T) {
+		testCases := []string{
+			"0",   // Zero is invalid (must be > 0)
+			"-1",  // Negative numbers
+			"-5",  // More negative numbers
+			"abc", // Non-numeric
+			"",    // Empty string
+			" ",   // Whitespace
+		}
+
+		for _, input := range testCases {
+			result, err := parseItemID(input)
+			require.Error(t, err, "Input should be invalid: %s", input)
+			require.Equal(t, -1, result, "Invalid input should return -1: %s", input)
+		}
+	})
+
+	t.Run("edge cases that succeed", func(t *testing.T) {
+		// These cases actually succeed because fmt.Sscanf parses the integer part
+		testCases := []struct {
+			input    string
+			expected int
+		}{
+			{"1.5", 0}, // Parses as "1", then converts to 0-based
+			{"1a", 0},  // Parses as "1", ignores the "a"
+			{"1 2", 0}, // Parses as "1", ignores the rest
+		}
+
+		for _, tc := range testCases {
+			result, err := parseItemID(tc.input)
+			require.NoError(t, err, "Input: %s", tc.input)
+			require.Equal(t, tc.expected, result, "Input: %s", tc.input)
+		}
+	})
+}
+
+// Tests for formatItem function (currently 0% coverage)
+func TestFormatItem(t *testing.T) {
+	t.Run("section formatting", func(t *testing.T) {
+		item := Item{
+			Type:    TypeSection,
+			Level:   1,
+			Content: "Main Section",
+			Checked: nil,
+		}
+
+		result := formatItem(item, 0) // Index 0 = ID 1
+		require.Contains(t, result, "1    ")
+		require.Contains(t, result, "# Main Section")
+	})
+
+	t.Run("task formatting", func(t *testing.T) {
+		t.Run("unchecked task", func(t *testing.T) {
+			checked := false
+			item := Item{
+				Type:    TypeTask,
+				Content: "Test task",
+				Checked: &checked,
+			}
+
+			result := formatItem(item, 4) // Index 4 = ID 5
+			require.Contains(t, result, "5    ")
+			require.Contains(t, result, "- [ ] Test task")
+		})
+
+		t.Run("checked task", func(t *testing.T) {
+			checked := true
+			item := Item{
+				Type:    TypeTask,
+				Content: "Completed task",
+				Checked: &checked,
+			}
+
+			result := formatItem(item, 9) // Index 9 = ID 10
+			require.Contains(t, result, "10   ")
+			require.Contains(t, result, "- [x] Completed task")
+		})
+	})
+
+	t.Run("various section levels", func(t *testing.T) {
+		for level := 1; level <= 6; level++ {
+			item := Item{
+				Type:    TypeSection,
+				Level:   level,
+				Content: fmt.Sprintf("Level %d Section", level),
+				Checked: nil,
+			}
+
+			result := formatItem(item, 0)
+			expectedHeader := strings.Repeat("#", level) + " " + fmt.Sprintf("Level %d Section", level)
+			require.Contains(t, result, expectedHeader)
+		}
+	})
+
+	t.Run("terminal vs non-terminal formatting", func(t *testing.T) {
+		// Test both terminal and non-terminal output
+		// Since isTerminal() depends on actual terminal state, we test the logic paths
+		item := Item{
+			Type:    TypeTask,
+			Content: "Test task",
+			Checked: func() *bool { b := false; return &b }(),
+		}
+
+		result := formatItem(item, 0)
+		// Should contain the basic components regardless of terminal state
+		require.Contains(t, result, "1    ")
+		require.Contains(t, result, "- [ ] Test task")
+	})
+}
+
+// Additional tests for parseMarkdownFile edge cases
+func TestParseMarkdownFile_MoreEdgeCases(t *testing.T) {
+	t.Run("file read error handling", func(t *testing.T) {
+		// Test non-existent file
+		items, err := parseMarkdownFile("/nonexistent/file.md")
+		require.Error(t, err)
+		require.Nil(t, items)
+		require.Contains(t, err.Error(), "failed to open file")
+	})
+
+	t.Run("complex mixed content", func(t *testing.T) {
+		content := `# Project Overview
+
+This is some regular text that should be ignored.
+
+## Phase 1
+- [ ] Initialize project structure
+    Some indented text that's not a task
+
+### Sub-phase 1.1
+- [x] Create repository due:yesterday
+- [ ] Setup CI/CD pipeline priority:high
+
+## Phase 2
+
+More regular text here.
+
+- [ ] Implement core features
+- [x] Write documentation
+
+# Different Project
+
+- [ ] Start different project
+`
+		filename := createTestFile(t, content)
+
+		items, err := parseMarkdownFile(filename)
+		require.NoError(t, err)
+
+		// Should only capture headers and tasks, ignoring regular text
+		expectedTypes := []ItemType{
+			TypeSection, // Project Overview
+			TypeSection, // Phase 1
+			TypeTask,    // Initialize project structure
+			TypeSection, // Sub-phase 1.1
+			TypeTask,    // Create repository
+			TypeTask,    // Setup CI/CD pipeline
+			TypeSection, // Phase 2
+			TypeTask,    // Implement core features
+			TypeTask,    // Write documentation
+			TypeSection, // Different Project
+			TypeTask,    // Start different project
+		}
+
+		require.Len(t, items, len(expectedTypes))
+
+		for i, expectedType := range expectedTypes {
+			require.Equal(t, expectedType, items[i].Type, "Item %d should be type %d", i, expectedType)
+		}
+
+		// Check specific items with metadata
+		require.Equal(t, "Create repository", items[4].Content)
+		require.True(t, *items[4].Checked)
+		require.Equal(t, "yesterday", items[4].Metadata["due"])
+
+		require.Equal(t, "Setup CI/CD pipeline", items[5].Content)
+		require.False(t, *items[5].Checked)
+		require.Equal(t, "high", items[5].Metadata["priority"])
+	})
+
+	t.Run("very long lines", func(t *testing.T) {
+		longContent := strings.Repeat("very long content ", 100)
+		content := fmt.Sprintf("# Very Long Section %s\n- [ ] Very long task %s priority:high", longContent, longContent)
+		filename := createTestFile(t, content)
+
+		items, err := parseMarkdownFile(filename)
+		require.NoError(t, err)
+		require.Len(t, items, 2)
+		require.Contains(t, items[0].Content, "Very Long Section")
+		require.Contains(t, items[1].Content, "Very long task")
+		require.Equal(t, "high", items[1].Metadata["priority"])
+	})
+}

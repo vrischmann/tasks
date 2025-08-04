@@ -222,6 +222,82 @@ func TestParseTask_WhitespaceHandling(t *testing.T) {
 	})
 }
 
+// Tests for parseTaskPrefix edge cases to improve coverage
+func TestParseTaskPrefix_EdgeCases(t *testing.T) {
+	t.Run("incomplete checkbox - ends at opening bracket", func(t *testing.T) {
+		result := parseTask("- [")
+		// This hits the p.pos >= p.len check when trying to read checkbox status
+		require.Empty(t, result.Description)
+		require.False(t, result.Completed)
+		require.Empty(t, result.Metadata)
+	})
+
+	t.Run("malformed checkbox - no closing bracket", func(t *testing.T) {
+		result := parseTask("- [ no closing bracket")
+		// This hits the expect(']') failure case
+		require.Empty(t, result.Description)
+		require.False(t, result.Completed)
+		require.Empty(t, result.Metadata)
+	})
+
+	t.Run("malformed checkbox but valid task prefix", func(t *testing.T) {
+		result := parseTask("- [x")
+		// The parser actually succeeds here - it parses 'x' as completed
+		// but the expect(']') failure happens after parsing checkbox status
+		require.Empty(t, result.Description)
+		require.True(t, result.Completed) // 'x' was parsed
+		require.Empty(t, result.Metadata)
+	})
+}
+
+// Additional tests for parseQuotedString coverage - focus on working cases
+func TestParseQuotedString_EdgeCases(t *testing.T) {
+	t.Run("escape sequences", func(t *testing.T) {
+		result := parseTask(`- [ ] Task with priority:"escaped \"quote\" inside"`)
+		require.Equal(t, "Task with", result.Description)
+		require.Equal(t, `escaped "quote" inside`, result.Metadata["priority"])
+	})
+
+	t.Run("escape characters", func(t *testing.T) {
+		result := parseTask(`- [ ] Task content note:"line1\nline2\ttab\\backslash"`)
+		require.Equal(t, "Task content", result.Description)
+		require.Equal(t, "line1\nline2\ttab\\backslash", result.Metadata["note"])
+	})
+
+	t.Run("unterminated quote", func(t *testing.T) {
+		result := parseTask(`- [ ] Task with unterminated quote status:"incomplete`)
+		require.Equal(t, `Task with unterminated quote status:"incomplete`, result.Description)
+		require.Empty(t, result.Metadata)
+	})
+}
+
+// Additional tests for parseContent coverage (whitespace handling)
+func TestParseContent_EdgeCases(t *testing.T) {
+	t.Run("task ending with whitespace", func(t *testing.T) {
+		// Test whitespace handling at end of content
+		result := parseTask("- [ ] content   ")
+		require.Equal(t, "content", result.Description)
+		require.False(t, result.Completed)
+		require.Empty(t, result.Metadata)
+	})
+
+	t.Run("empty task content with spaces", func(t *testing.T) {
+		// Edge case: only whitespace after checkbox
+		result := parseTask("- [ ]     ")
+		require.Empty(t, result.Description)
+		require.False(t, result.Completed)
+		require.Empty(t, result.Metadata)
+	})
+
+	t.Run("task with special characters", func(t *testing.T) {
+		// Special characters are included in words by parseWord()
+		result := parseTask("- [ ] content @ & $ #")
+		require.Equal(t, "content @ & $ #", result.Description)
+		require.False(t, result.Completed)
+		require.Empty(t, result.Metadata)
+	})
+}
+
 func TestParseTask_RealWorldExamples(t *testing.T) {
 	t.Run("bug report task", func(t *testing.T) {
 		result := parseTask("- [ ] Fix issue #123: Button not responding on mobile devices priority:high due:2025-08-05 project:mobile")
