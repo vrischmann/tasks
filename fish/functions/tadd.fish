@@ -80,10 +80,10 @@ function tadd --description "Interactively add a task after selecting an existin
         # Add the section
         if test -n "$after_id"
             echo "Adding section (level $section_level) after ID $after_id..."
-            tasks --file "$file" add --after "$after_id" --section "$section_level" "$section_content"
+            tasks --file "$file" add --after "$after_id" --section --level "$section_level" "$section_content"
         else
             echo "Adding section (level $section_level) at the end..."
-            tasks --file "$file" add --section "$section_level" "$section_content"
+            tasks --file "$file" add --section --level "$section_level" "$section_content"
         end
     else
         # Adding a task
