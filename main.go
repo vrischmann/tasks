@@ -85,6 +85,9 @@ func formatItem(item Item, index int) string {
 func parseMarkdownFile(filePath string) ([]Item, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("file '%s' does not exist", filePath)
+		}
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
@@ -440,7 +443,7 @@ func printUsage() {
 func handleList(filePath string) error {
 	items, err := parseMarkdownFile(filePath)
 	if err != nil {
-		return fmt.Errorf("reading file: %w", err)
+		return err
 	}
 
 	for i, item := range items {
@@ -765,7 +768,7 @@ func handleSearch(filePath string, args []string) error {
 	// Load items from file
 	items, err := parseMarkdownFile(filePath)
 	if err != nil {
-		return fmt.Errorf("reading file: %w", err)
+		return err
 	}
 
 	// Perform search

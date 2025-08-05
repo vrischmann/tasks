@@ -785,7 +785,7 @@ func TestTaskManager_Load_ErrorHandling(t *testing.T) {
 		tm := &TaskManager{FilePath: "/nonexistent/file.md"}
 		err := tm.Load()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to open file")
+		require.Contains(t, err.Error(), "does not exist")
 	})
 
 	t.Run("malformed markdown", func(t *testing.T) {
@@ -1077,7 +1077,7 @@ func TestParseMarkdownFile_MoreEdgeCases(t *testing.T) {
 		items, err := parseMarkdownFile("/nonexistent/file.md")
 		require.Error(t, err)
 		require.Nil(t, items)
-		require.Contains(t, err.Error(), "failed to open file")
+		require.Contains(t, err.Error(), "does not exist")
 	})
 
 	t.Run("complex mixed content", func(t *testing.T) {
