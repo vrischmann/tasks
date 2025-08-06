@@ -14,6 +14,20 @@ import (
 	"golang.org/x/term"
 )
 
+var colorMode string
+
+// shouldUseColor checks if color output should be used
+func shouldUseColor() bool {
+	switch colorMode {
+	case "always":
+		return true
+	case "never":
+		return false
+	default:
+		return term.IsTerminal(int(os.Stdout.Fd()))
+	}
+}
+
 // ItemType represents the type of item in the task list
 type ItemType int
 
@@ -49,14 +63,14 @@ func parseItemID(idStr string) (int, error) {
 func formatItem(item Item, index int) string {
 	// 1-based indexing for user-facing IDs
 	id := index + 1
-	idStr := fmt.Sprintf("%-5d", id)
+	idStr := fmt.Sprintf("% -5d", id)
 
 	var result string
 
 	switch item.Type {
 	case TypeSection:
 		headerStr := strings.Repeat("#", item.Level) + " " + item.Content
-		if isTerminal() {
+		if shouldUseColor() {
 			result = fmt.Sprintf("\033[33m%s\033[0m %s", idStr, headerStr)
 		} else {
 			result = fmt.Sprintf("%s %s", idStr, headerStr)
@@ -68,7 +82,30 @@ func formatItem(item Item, index int) string {
 			checkBox = "[x]"
 		}
 		taskStr := "- " + checkBox + " " + item.Content
-		if isTerminal() {
+
+		// Add metadata if it exists
+		if len(item.Metadata) > 0 {
+			var metadataParts []string
+			// Sort keys for consistent order
+			keys := make([]string, 0, len(item.Metadata))
+			for k := range item.Metadata {
+				keys = append(keys, k)
+			}
+			slices.Sort(keys)
+
+			for _, k := range keys {
+				v := item.Metadata[k]
+				if shouldUseColor() {
+					// Green color for metadata
+					metadataParts = append(metadataParts, fmt.Sprintf("\033[32m%s:%s\033[0m", k, v))
+				} else {
+					metadataParts = append(metadataParts, fmt.Sprintf("%s:%s", k, v))
+				}
+			}
+			taskStr += " " + strings.Join(metadataParts, " ")
+		}
+
+		if shouldUseColor() {
 			result = fmt.Sprintf("\033[33m%s\033[0m %s", idStr, taskStr)
 		} else {
 			result = fmt.Sprintf("%s %s", idStr, taskStr)
@@ -347,11 +384,6 @@ func getVersion() string {
 	return version
 }
 
-// isTerminal checks if stdout is connected to a terminal
-func isTerminal() bool {
-	return term.IsTerminal(int(os.Stdout.Fd()))
-}
-
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -370,6 +402,7 @@ func run() error {
 	flag.BoolVar(&showHelp, "help", false, "Show help message")
 	flag.BoolVar(&showHelp, "h", false, "Show help message")
 	flag.StringVar(&filePath, "file", "TODO.md", "Path to the markdown file")
+	flag.StringVar(&colorMode, "color", "auto", "When to use color output (always, never, auto)")
 
 	// Custom usage function to avoid default flag help
 	flag.Usage = func() {
@@ -421,7 +454,7 @@ func run() error {
 }
 
 func printUsage() {
-	fmt.Println("Usage: tasks [--file <path>] <command> [args]")
+	fmt.Println("Usage: tasks [--file <path>] [--color <mode>] <command> [args]")
 	fmt.Println("")
 	fmt.Println("Commands:")
 	fmt.Println("  ls                    List all tasks and sections with line numbers")
@@ -434,6 +467,7 @@ func printUsage() {
 	fmt.Println("")
 	fmt.Println("Options:")
 	fmt.Println("  --file <path>         Specify markdown file (default: TODO.md)")
+	fmt.Println("  --color <mode>        When to use color output (always, never, auto). Default is auto.")
 	fmt.Println("  --help, -h            Show this help message")
 	fmt.Println("  --version, -v         Show version information")
 	fmt.Println("")
