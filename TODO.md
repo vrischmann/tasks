@@ -1,7 +1,8 @@
 # Features
 
 - [x] Add metadata to the line
-- [ ] Display the metadata
+- [x] Display the metadata
+- [ ] Modify tadd to add metadata
 - [ ] Allow creating a new TODO.md file
 
 # Development
