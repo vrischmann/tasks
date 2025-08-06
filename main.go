@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,10 +10,14 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
-var colorMode string
+var (
+	colorMode string
+	filePath  string
+)
 
 // shouldUseColor checks if color output should be used
 func shouldUseColor() bool {
@@ -392,222 +395,277 @@ func main() {
 }
 
 func run() error {
-	// Define global flags
-	var showVersion bool
-	var showHelp bool
-	var filePath string
-
-	flag.BoolVar(&showVersion, "version", false, "Show version information")
-	flag.BoolVar(&showVersion, "v", false, "Show version information")
-	flag.BoolVar(&showHelp, "help", false, "Show help message")
-	flag.BoolVar(&showHelp, "h", false, "Show help message")
-	flag.StringVar(&filePath, "file", "TODO.md", "Path to the markdown file")
-	flag.StringVar(&colorMode, "color", "auto", "When to use color output (always, never, auto)")
-
-	// Custom usage function to avoid default flag help
-	flag.Usage = func() {
-		printUsage()
+	rootCmd := &cobra.Command{
+		Use:   "tasks",
+		Short: "A stateless, composable CLI tool for managing markdown task lists",
+		Long: `A stateless, composable CLI tool for managing markdown task lists.
+It provides Unix-friendly commands for manipulating tasks and sections stored in markdown files,
+designed for scripting and integration with other tools like fzf and shell workflows.`,
+		Version: getVersion(),
 	}
 
-	flag.Parse()
+	// Global flags
+	rootCmd.PersistentFlags().StringVar(&filePath, "file", "TODO.md", "Path to the markdown file")
+	rootCmd.PersistentFlags().StringVar(&colorMode, "color", "auto", "When to use color output (always, never, auto)")
 
-	// Handle version flag
-	if showVersion {
-		fmt.Printf("tasks version %s\n", getVersion())
-		return nil
-	}
+	// Add subcommands
+	rootCmd.AddCommand(
+		newListCommand(),
+		newAddCommand(),
+		newDoneCommand(),
+		newUndoCommand(),
+		newRemoveCommand(),
+		newEditCommand(),
+		newSearchCommand(),
+	)
 
-	// Handle help flag
-	if showHelp {
-		printUsage()
-		return nil
-	}
+	return rootCmd.Execute()
+}
 
-	args := flag.Args()
-	if len(args) < 1 {
-		printUsage()
-		return fmt.Errorf("no command provided")
-	}
+func newListCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "ls",
+		Short: "List all tasks and sections with line numbers",
+		Long:  "List all tasks and sections in the markdown file with 1-based indexing for easy reference.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			items, err := parseMarkdownFile(filePath)
+			if err != nil {
+				return err
+			}
 
-	cmd := args[0]
-	cmdArgs := args[1:]
-
-	switch cmd {
-	case "ls":
-		return handleList(filePath)
-	case "add":
-		return handleAdd(filePath, cmdArgs)
-	case "done":
-		return handleDone(filePath, cmdArgs)
-	case "undo":
-		return handleUndo(filePath, cmdArgs)
-	case "rm":
-		return handleRemove(filePath, cmdArgs)
-	case "edit":
-		return handleEdit(filePath, cmdArgs)
-	case "search":
-		return handleSearch(filePath, cmdArgs)
-	default:
-		printUsage()
-		return fmt.Errorf("unknown command: %s", cmd)
+			for i, item := range items {
+				fmt.Println(formatItem(item, i))
+			}
+			return nil
+		},
 	}
 }
 
-func printUsage() {
-	fmt.Println("Usage: tasks [--file <path>] [--color <mode>] <command> [args]")
-	fmt.Println("")
-	fmt.Println("Commands:")
-	fmt.Println("  ls                    List all tasks and sections with line numbers")
-	fmt.Println("  add [flags] <text>    Add a new task or section")
-	fmt.Println("  done <id>             Mark task as completed")
-	fmt.Println("  undo <id>             Mark task as incomplete")
-	fmt.Println("  rm <id>               Remove task or section (with confirmation)")
-	fmt.Println("  edit <id>             Edit task or section in $EDITOR")
-	fmt.Println("  search <term> [...]   Search tasks and sections with fuzzy matching")
-	fmt.Println("")
-	fmt.Println("Options:")
-	fmt.Println("  --file <path>         Specify markdown file (default: TODO.md)")
-	fmt.Println("  --color <mode>        When to use color output (always, never, auto). Default is auto.")
-	fmt.Println("  --help, -h            Show this help message")
-	fmt.Println("  --version, -v         Show version information")
-	fmt.Println("")
-	fmt.Println("Use 'tasks add --help' for detailed add command options.")
+func newAddCommand() *cobra.Command {
+	var (
+		isSection    bool
+		sectionLevel int
+		afterID      int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "add [text]",
+		Short: "Add a new task or section",
+		Long:  "Add a new task or section to the markdown file.",
+		Args:  cobra.MinimumNArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			content := strings.Join(args, " ")
+			if content == "" {
+				return fmt.Errorf("content is required")
+			}
+
+			// Validate section level
+			if isSection && (sectionLevel < 1 || sectionLevel > 6) {
+				return fmt.Errorf("invalid section level %d (must be 1-6)", sectionLevel)
+			}
+
+			// Create TaskManager and load items
+			tm, err := NewTaskManager(filePath)
+			if err != nil {
+				return fmt.Errorf("loading file: %w", err)
+			}
+
+			// Convert afterID to 0-based index (-1 means append at end)
+			afterIndex := -1
+			if afterID > 0 {
+				if afterID > len(tm.Items) {
+					return fmt.Errorf("item ID %d does not exist (max: %d)", afterID, len(tm.Items))
+				}
+				afterIndex = afterID - 1 // Convert to 0-based
+			}
+
+			if isSection {
+				// Add a section
+				if err := tm.AddSection(content, sectionLevel, afterIndex); err != nil {
+					return err
+				}
+
+				if afterID > 0 {
+					fmt.Printf("Added section after item %d: %s %s\n", afterID, strings.Repeat("#", sectionLevel), content)
+				} else {
+					fmt.Printf("Added section: %s %s\n", strings.Repeat("#", sectionLevel), content)
+				}
+			} else {
+				// Add a task
+				if err := tm.AddTask(content, afterIndex); err != nil {
+					return err
+				}
+
+				if afterID > 0 {
+					fmt.Printf("Added task after item %d: %s\n", afterID, content)
+				} else {
+					fmt.Printf("Added task: %s\n", content)
+				}
+			}
+
+			// Save the changes
+			if err := tm.Save(); err != nil {
+				return fmt.Errorf("saving file: %w", err)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVarP(&isSection, "section", "s", false, "Add a section instead of a task")
+	cmd.Flags().IntVarP(&sectionLevel, "level", "l", 1, "Section level (1-6) when adding a section")
+	cmd.Flags().IntVarP(&afterID, "after", "a", 0, "Add after the specified item ID (1-based)")
+
+	return cmd
 }
 
-func handleList(filePath string) error {
-	items, err := parseMarkdownFile(filePath)
-	if err != nil {
-		return err
-	}
+func newDoneCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "done <id>",
+		Short: "Mark task as completed",
+		Long:  "Mark a task as completed by specifying its ID.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Parse the ID
+			index, err := parseItemID(args[0])
+			if err != nil {
+				return err
+			}
+			id := index + 1 // Keep original ID for display
 
-	for i, item := range items {
-		fmt.Println(formatItem(item, i))
+			tm, err := NewTaskManager(filePath)
+			if err != nil {
+				return err
+			}
+
+			if err := tm.ToggleTask(index, true); err != nil {
+				return err
+			}
+
+			if err := tm.Save(); err != nil {
+				return fmt.Errorf("saving file: %w", err)
+			}
+
+			fmt.Printf("Marked task %d as completed\n", id)
+			return nil
+		},
 	}
-	return nil
 }
 
-func handleAdd(filePath string, args []string) error {
-	// Create a new flag set for the add command
-	addFlags := flag.NewFlagSet("add", flag.ContinueOnError)
-	isSection := addFlags.Bool("section", false, "Add a section instead of a task")
-	sectionLevel := addFlags.Int("level", 1, "Section level (1-6) when adding a section")
-	afterID := addFlags.Int("after", 0, "Add after the specified item ID (1-based)")
-	showHelp := addFlags.Bool("help", false, "Show help for the add command")
+func newUndoCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "undo <id>",
+		Short: "Mark task as incomplete",
+		Long:  "Mark a task as incomplete by specifying its ID.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Parse the ID
+			index, err := parseItemID(args[0])
+			if err != nil {
+				return err
+			}
+			id := index + 1 // Keep original ID for display
 
-	// Custom usage function
-	addFlags.Usage = func() {
-		fmt.Println("Usage: tasks add [flags] <text>")
-		fmt.Println("")
-		fmt.Println("Add a new task or section to the markdown file.")
-		fmt.Println("")
-		fmt.Println("Flags:")
-		fmt.Println("  --section         Add a section instead of a task")
-		fmt.Println("  --level <n>       Section level (1-6), only used with --section (default: 1)")
-		fmt.Println("  --after <id>      Add after the specified item ID (1-based)")
-		fmt.Println("  --help            Show this help message")
-		fmt.Println("")
-		fmt.Println("Examples:")
-		fmt.Println("  tasks add \"Review documentation\"")
-		fmt.Println("  tasks add --after 3 \"Follow-up task\"")
-		fmt.Println("  tasks add --section --level 2 \"New Project Phase\"")
-		fmt.Println("  tasks add --section \"Main Section\"")
+			tm, err := NewTaskManager(filePath)
+			if err != nil {
+				return err
+			}
+
+			if err := tm.ToggleTask(index, false); err != nil {
+				return err
+			}
+
+			if err := tm.Save(); err != nil {
+				return fmt.Errorf("saving file: %w", err)
+			}
+
+			fmt.Printf("Marked task %d as incomplete\n", id)
+			return nil
+		},
 	}
-
-	// Parse the flags
-	if err := addFlags.Parse(args); err != nil {
-		return err
-	}
-
-	// Check if help was requested
-	if *showHelp {
-		addFlags.Usage()
-		return nil
-	}
-
-	// Get remaining arguments (the content)
-	content := strings.Join(addFlags.Args(), " ")
-	if content == "" {
-		return fmt.Errorf("content is required")
-	}
-
-	// Validate section level
-	if *isSection && (*sectionLevel < 1 || *sectionLevel > 6) {
-		return fmt.Errorf("invalid section level %d (must be 1-6)", *sectionLevel)
-	}
-
-	// Create TaskManager and load items
-	tm, err := NewTaskManager(filePath)
-	if err != nil {
-		return fmt.Errorf("loading file: %w", err)
-	}
-
-	// Convert afterID to 0-based index (-1 means append at end)
-	afterIndex := -1
-	if *afterID > 0 {
-		if *afterID > len(tm.Items) {
-			return fmt.Errorf("item ID %d does not exist (max: %d)", *afterID, len(tm.Items))
-		}
-		afterIndex = *afterID - 1 // Convert to 0-based
-	}
-
-	if *isSection {
-		// Add a section
-		if err := tm.AddSection(content, *sectionLevel, afterIndex); err != nil {
-			return err
-		}
-
-		if *afterID > 0 {
-			fmt.Printf("Added section after item %d: %s %s\n", *afterID, strings.Repeat("#", *sectionLevel), content)
-		} else {
-			fmt.Printf("Added section: %s %s\n", strings.Repeat("#", *sectionLevel), content)
-		}
-	} else {
-		// Add a task
-		if err := tm.AddTask(content, afterIndex); err != nil {
-			return err
-		}
-
-		if *afterID > 0 {
-			fmt.Printf("Added task after item %d: %s\n", *afterID, content)
-		} else {
-			fmt.Printf("Added task: %s\n", content)
-		}
-	}
-
-	// Save the changes
-	if err := tm.Save(); err != nil {
-		return fmt.Errorf("saving file: %w", err)
-	}
-	return nil
 }
 
-func handleDone(filePath string, args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("done command requires an item ID")
+func newRemoveCommand() *cobra.Command {
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "rm <id>",
+		Short: "Remove task or section",
+		Long:  "Remove a task or section by specifying its ID. Sections will remove all child items.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Parse the ID
+			index, err := parseItemID(args[0])
+			if err != nil {
+				return err
+			}
+			id := index + 1 // Keep original ID for display
+
+			// Variables to capture item details before removal
+			var itemContent string
+			var itemType string
+
+			tm, err := NewTaskManager(filePath)
+			if err != nil {
+				return err
+			}
+
+			// Get the item before removing it (for confirmation message)
+			item, err := tm.GetItem(index)
+			if err != nil {
+				return err
+			}
+
+			// Store the item details before removal to avoid pointer issues
+			itemContent = item.Content
+			itemType = "task"
+			if item.Type == TypeSection {
+				itemType = "section"
+			}
+
+			// Check if confirmation is needed
+			if !force {
+				itemDesc := fmt.Sprintf("%s %d: %s", itemType, id, itemContent)
+				if item.Type == TypeSection {
+					// Count children that will be removed
+					childCount := 0
+					for i := index + 1; i < len(tm.Items); i++ {
+						nextItem := tm.Items[i]
+						if nextItem.Type == TypeSection && nextItem.Level <= item.Level {
+							break
+						}
+						childCount++
+					}
+					if childCount > 0 {
+						itemDesc = fmt.Sprintf("%s %d: %s (and %d child items)", itemType, id, itemContent, childCount)
+					}
+				}
+
+				confirmed, err := confirmRemoval(itemDesc)
+				if err != nil {
+					return fmt.Errorf("confirmation failed: %w", err)
+				}
+				if !confirmed {
+					return fmt.Errorf("removal cancelled")
+				}
+			}
+
+			// Remove the item
+			if err := tm.RemoveItem(index); err != nil {
+				return err
+			}
+
+			if err := tm.Save(); err != nil {
+				return fmt.Errorf("saving file: %w", err)
+			}
+
+			fmt.Printf("Removed %s %d: %s\n", itemType, id, itemContent)
+			return nil
+		},
 	}
 
-	// Parse the ID
-	index, err := parseItemID(args[0])
-	if err != nil {
-		return err
-	}
-	id := index + 1 // Keep original ID for display
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force removal without confirmation")
 
-	tm, err := NewTaskManager(filePath)
-	if err != nil {
-		return err
-	}
-
-	if err := tm.ToggleTask(index, true); err != nil {
-		return err
-	}
-
-	if err := tm.Save(); err != nil {
-		return fmt.Errorf("saving file: %w", err)
-	}
-
-	fmt.Printf("Marked task %d as completed\n", id)
-	return nil
+	return cmd
 }
 
 // confirmRemoval prompts the user for confirmation before removing an item
@@ -624,201 +682,103 @@ func confirmRemoval(itemDesc string) (bool, error) {
 	return input == "y" || input == "yes", nil
 }
 
-func handleUndo(filePath string, args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("undo command requires an item ID")
-	}
-
-	// Parse the ID
-	index, err := parseItemID(args[0])
-	if err != nil {
-		return err
-	}
-	id := index + 1 // Keep original ID for display
-
-	tm, err := NewTaskManager(filePath)
-	if err != nil {
-		return err
-	}
-
-	if err := tm.ToggleTask(index, false); err != nil {
-		return err
-	}
-
-	if err := tm.Save(); err != nil {
-		return fmt.Errorf("saving file: %w", err)
-	}
-
-	fmt.Printf("Marked task %d as incomplete\n", id)
-	return nil
-}
-
-func handleRemove(filePath string, args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("rm command requires an item ID")
-	}
-
-	// Parse the ID
-	index, err := parseItemID(args[0])
-	if err != nil {
-		return err
-	}
-	id := index + 1 // Keep original ID for display
-
-	// Check for force flag
-	force := len(args) > 1 && args[1] == "--force"
-
-	// Variables to capture item details before removal
-	var itemContent string
-	var itemType string
-
-	tm, err := NewTaskManager(filePath)
-	if err != nil {
-		return err
-	}
-
-	// Get the item before removing it (for confirmation message)
-	item, err := tm.GetItem(index)
-	if err != nil {
-		return err
-	}
-
-	// Store the item details before removal to avoid pointer issues
-	itemContent = item.Content
-	itemType = "task"
-	if item.Type == TypeSection {
-		itemType = "section"
-	}
-
-	// Check if confirmation is needed
-	if !force {
-		itemDesc := fmt.Sprintf("%s %d: %s", itemType, id, itemContent)
-		if item.Type == TypeSection {
-			// Count children that will be removed
-			childCount := 0
-			for i := index + 1; i < len(tm.Items); i++ {
-				nextItem := tm.Items[i]
-				if nextItem.Type == TypeSection && nextItem.Level <= item.Level {
-					break
-				}
-				childCount++
+func newEditCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "edit <id>",
+		Short: "Edit task or section in $EDITOR",
+		Long:  "Edit a task or section by opening the file in $EDITOR at the appropriate line.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Parse the ID
+			index, err := parseItemID(args[0])
+			if err != nil {
+				return err
 			}
-			if childCount > 0 {
-				itemDesc = fmt.Sprintf("%s %d: %s (and %d child items)", itemType, id, itemContent, childCount)
+			id := index + 1 // Keep original ID for display
+
+			// Load TaskManager to get the line number
+			tm, err := NewTaskManager(filePath)
+			if err != nil {
+				return fmt.Errorf("loading file: %w", err)
 			}
-		}
 
-		confirmed, err := confirmRemoval(itemDesc)
-		if err != nil {
-			return fmt.Errorf("confirmation failed: %w", err)
-		}
-		if !confirmed {
-			return fmt.Errorf("removal cancelled")
-		}
+			// Get the item to find its line number
+			item, err := tm.GetItem(index)
+			if err != nil {
+				return err
+			}
+
+			lineNumber := item.LineNumber
+
+			// Get editor from environment, default to vi
+			editor := os.Getenv("EDITOR")
+			if editor == "" {
+				editor = "vi"
+			}
+
+			// Construct the command to open the file at the specific line
+			var execCmd *exec.Cmd
+
+			// Different editors have different syntax for opening at a specific line
+			switch {
+			case strings.Contains(editor, "vim") || strings.Contains(editor, "vi"):
+				execCmd = exec.Command(editor, fmt.Sprintf("+%d", lineNumber), filePath)
+			case strings.Contains(editor, "nano"):
+				execCmd = exec.Command(editor, fmt.Sprintf("+%d", lineNumber), filePath)
+			case strings.Contains(editor, "emacs"):
+				execCmd = exec.Command(editor, fmt.Sprintf("+%d", lineNumber), filePath)
+			case strings.Contains(editor, "code"): // VS Code
+				execCmd = exec.Command(editor, "--goto", fmt.Sprintf("%s:%d", filePath, lineNumber))
+			default:
+				// Fall back to just opening the file
+				execCmd = exec.Command(editor, filePath)
+			}
+
+			// Inherit stdin, stdout, and stderr so the editor works properly
+			execCmd.Stdin = os.Stdin
+			execCmd.Stdout = os.Stdout
+			execCmd.Stderr = os.Stderr
+
+			// Run the editor
+			if err := execCmd.Run(); err != nil {
+				return fmt.Errorf("running editor: %w", err)
+			}
+
+			fmt.Printf("Edited item %d with %s\n", id, editor)
+			return nil
+		},
 	}
-
-	// Remove the item
-	if err := tm.RemoveItem(index); err != nil {
-		return err
-	}
-
-	if err := tm.Save(); err != nil {
-		return fmt.Errorf("saving file: %w", err)
-	}
-
-	fmt.Printf("Removed %s %d: %s\n", itemType, id, itemContent)
-	return nil
 }
 
-func handleEdit(filePath string, args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("edit command requires an item ID")
+func newSearchCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "search [terms...]",
+		Short: "Search tasks and sections",
+		Long:  "Search tasks and sections with fuzzy matching. Multiple search terms can be provided.",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Load items from file
+			items, err := parseMarkdownFile(filePath)
+			if err != nil {
+				return err
+			}
+
+			// Perform search
+			results := searchItems(items, args)
+
+			if len(results) == 0 {
+				fmt.Printf("No matches found for: %s\n", strings.Join(args, " "))
+				return nil
+			}
+
+			// Display results
+			fmt.Printf("Found %d match(es) for: %s\n", len(results), strings.Join(args, " "))
+			fmt.Println()
+
+			for _, result := range results {
+				fmt.Println(formatItem(result.Item, result.Index))
+			}
+			return nil
+		},
 	}
-
-	// Parse the ID
-	index, err := parseItemID(args[0])
-	if err != nil {
-		return err
-	}
-	id := index + 1 // Keep original ID for display
-
-	// Load TaskManager to get the line number
-	tm, err := NewTaskManager(filePath)
-	if err != nil {
-		return fmt.Errorf("loading file: %w", err)
-	}
-
-	// Get the item to find its line number
-	item, err := tm.GetItem(index)
-	if err != nil {
-		return err
-	}
-
-	lineNumber := item.LineNumber
-
-	// Get editor from environment, default to vi
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "vi"
-	}
-
-	// Construct the command to open the file at the specific line
-	var cmd *exec.Cmd
-
-	// Different editors have different syntax for opening at a specific line
-	switch {
-	case strings.Contains(editor, "vim") || strings.Contains(editor, "vi"):
-		cmd = exec.Command(editor, fmt.Sprintf("+%d", lineNumber), filePath)
-	case strings.Contains(editor, "nano"):
-		cmd = exec.Command(editor, fmt.Sprintf("+%d", lineNumber), filePath)
-	case strings.Contains(editor, "emacs"):
-		cmd = exec.Command(editor, fmt.Sprintf("+%d", lineNumber), filePath)
-	case strings.Contains(editor, "code"): // VS Code
-		cmd = exec.Command(editor, "--goto", fmt.Sprintf("%s:%d", filePath, lineNumber))
-	default:
-		// Fall back to just opening the file
-		cmd = exec.Command(editor, filePath)
-	}
-
-	// Inherit stdin, stdout, and stderr so the editor works properly
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	// Run the editor
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("running editor: %w", err)
-	}
-
-	fmt.Printf("Edited item %d with %s\n", id, editor)
-	return nil
-}
-
-func handleSearch(filePath string, args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("search command requires at least one search term")
-	}
-
-	// Load items from file
-	items, err := parseMarkdownFile(filePath)
-	if err != nil {
-		return err
-	}
-
-	// Perform search
-	results := searchItems(items, args)
-
-	if len(results) == 0 {
-		fmt.Printf("No matches found for: %s\n", strings.Join(args, " "))
-		return nil
-	}
-
-	// Display results
-	fmt.Printf("Found %d match(es) for: %s\n", len(results), strings.Join(args, " "))
-	fmt.Println()
-
-	for _, result := range results {
-		fmt.Println(formatItem(result.Item, result.Index))
-	}
-	return nil
 }
