@@ -72,6 +72,10 @@ func formatItem(item Item, index int) string {
 
 	switch item.Type {
 	case TypeSection:
+		if id > 1 {
+			fmt.Println()
+		}
+
 		headerStr := strings.Repeat("#", item.Level) + " " + item.Content
 		if shouldUseColor() {
 			result = fmt.Sprintf("\033[33m%s\033[0m %s", idStr, headerStr)
