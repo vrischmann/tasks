@@ -199,11 +199,11 @@ func TestIntegration_AddAndListTasks(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, tm.Items)
 
-	err = tm.AddTask("First task", -1)
+	err = tm.AddTask("First task", nil, -1)
 	require.NoError(t, err)
 	err = tm.AddSection("Main Section", 1, -1)
 	require.NoError(t, err)
-	err = tm.AddTask("Second task", -1)
+	err = tm.AddTask("Second task", nil, -1)
 	require.NoError(t, err)
 
 	err = tm.Save()
@@ -772,7 +772,7 @@ func TestTaskManager_AddTask_ErrorCases(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tm.AddTask("Test Task", tc.afterIndex)
+			err := tm.AddTask("Test Task", nil, tc.afterIndex)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tc.errContains)
 		})

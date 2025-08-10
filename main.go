@@ -496,7 +496,9 @@ func newAddCommand() *cobra.Command {
 				}
 			} else {
 				// Add a task
-				if err := tm.AddTask(content, afterIndex); err != nil {
+				// Use parseTask to separate content from metadata
+				parsed := parseTask(fmt.Sprintf("- [ ] %s", content))
+				if err := tm.AddTask(parsed.Description, parsed.Metadata, afterIndex); err != nil {
 					return err
 				}
 

@@ -63,14 +63,14 @@ func (tm *TaskManager) RemoveItem(index int) error {
 }
 
 // AddTask adds a new task to the list
-func (tm *TaskManager) AddTask(content string, afterIndex int) error {
+func (tm *TaskManager) AddTask(description string, metadata map[string]string, afterIndex int) error {
 	newTask := Item{
 		Type:       TypeTask,
 		Level:      0, // Default to no indentation
-		Content:    content,
+		Content:    description,
 		Checked:    func() *bool { b := false; return &b }(),
-		LineNumber: 0,   // Will be set to proper value when saved
-		Metadata:   nil, // No metadata by default
+		LineNumber: 0, // Will be set to proper value when saved
+		Metadata:   metadata,
 	}
 
 	if afterIndex == -1 {

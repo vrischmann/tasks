@@ -72,19 +72,49 @@ func TestTaskManager_AddTask(t *testing.T) {
 	require.Len(t, tm.Items, 1)
 
 	// Add task at the end
-	err = tm.AddTask("New task", -1)
+	err = tm.AddTask("New task", nil, -1)
 	require.NoError(t, err)
 	require.Len(t, tm.Items, 2)
 	require.Equal(t, "New task", tm.Items[1].Content)
 	require.Equal(t, TypeTask, tm.Items[1].Type)
 	require.False(t, *tm.Items[1].Checked)
+	require.Empty(t, tm.Items[1].Metadata)
 
 	// Add task after index 0
-	err = tm.AddTask("Middle task", 0)
+	err = tm.AddTask("Middle task", nil, 0)
 	require.NoError(t, err)
 	require.Len(t, tm.Items, 3)
 	require.Equal(t, "Middle task", tm.Items[1].Content)
 	require.Equal(t, "New task", tm.Items[2].Content)
+}
+
+func TestTaskManager_AddTaskWithMetadata(t *testing.T) {
+	content := `- [ ] Existing task`
+	filename := createTestFile(t, content)
+
+	tm := &TaskManager{FilePath: filename}
+	err := tm.Load()
+	require.NoError(t, err)
+
+	// Add task with metadata
+	desc := "New task with metadata"
+	meta := map[string]string{
+		"priority": "high",
+		"due":      "tomorrow",
+	}
+	err = tm.AddTask(desc, meta, -1)
+	require.NoError(t, err)
+	require.Len(t, tm.Items, 2)
+
+	// Verify the new task
+	newTask := tm.Items[1]
+	require.Equal(t, desc, newTask.Content)
+	require.Equal(t, TypeTask, newTask.Type)
+	require.False(t, *newTask.Checked)
+	require.NotNil(t, newTask.Metadata)
+	require.Len(t, newTask.Metadata, 2)
+	require.Equal(t, "high", newTask.Metadata["priority"])
+	require.Equal(t, "tomorrow", newTask.Metadata["due"])
 }
 
 func TestTaskManager_AddSection(t *testing.T) {
