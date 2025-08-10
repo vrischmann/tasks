@@ -6,7 +6,9 @@ watch-build:
 
 fmt:
 	@printf "\x1b[34m===>\x1b[m  Running go fmt\n"
-	go fmt ./...
+	gofmt -s -w .
+	@printf "\x1b[34m===>\x1b[m  Running goimports\n"
+	goimports -local dev.rischmann.fr -w .
 
 check:
 	@printf "\x1b[34m===>\x1b[m  Running go vet\n"
