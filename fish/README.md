@@ -4,44 +4,19 @@ This directory contains Fish shell functions for interactive task management wit
 
 ## Installation
 
-### Option 1: Source individual functions
-```fish
-# Add to your ~/.config/fish/config.fish
-source /path/to/tasks/fish/tlist.fish
-source /path/to/tasks/fish/ttoggle.fish
-source /path/to/tasks/fish/tedit.fish
-source /path/to/tasks/fish/tmark.fish
-source /path/to/tasks/fish/tremove.fish
-source /path/to/tasks/fish/tadd.fish
-```
+**Note:** If you installed `tasks` via Homebrew, the Fish functions and completions are already installed automatically.
 
-### Option 2: Copy to Fish functions directory
+For manual installation, copy the Fish functions and completions to your Fish configuration directory:
+
 ```bash
-cp fish/*.fish ~/.config/fish/functions/
-```
+# Copy functions
+cp fish/functions/*.fish ~/.config/fish/functions/
 
-### Option 3: Symlink to Fish functions directory
-```bash
-ln -sf /path/to/tasks/fish/functions/*.fish ~/.config/fish/functions/
-```
-
-## Shell Completions
-
-Fish shell completions are provided for the `tasks` CLI tool.
-
-### Installation
-```bash
-# Copy completions file
+# Copy completions
 cp fish/completions/tasks.fish ~/.config/fish/completions/
-
-# Or symlink for development
-ln -sf /path/to/tasks/fish/completions/tasks.fish ~/.config/fish/completions/
 ```
 
-The completions provide:
-- Command completion (ls, add, done, undo, rm, edit, search, completion)
-- Flag completion (--file, --color, --section)
-- Shell type completion for `tasks completion` command
+The completions provide command, flag, and argument completion for the `tasks` CLI tool.
 
 ## Functions
 

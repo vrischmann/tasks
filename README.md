@@ -20,16 +20,17 @@ brew install tasks
 ```
 
 ### Option 2: Manual Installation
-**Prerequisites:** Go 1.24.5 or later
+**Prerequisites:** Go 1.25.0 or later
 
 ```bash
 go install dev.rischmann.fr/tasks@latest
 ```
 
 **Fish Shell Integration (Optional):**
-If you use Fish shell, copy the functions for enhanced functionality:
+If you use Fish shell, copy the functions and completions for enhanced functionality:
 ```bash
 cp fish/functions/*.fish ~/.config/fish/functions/
+cp fish/completions/tasks.fish ~/.config/fish/completions/
 ```
 
 ## Quick Start
@@ -129,6 +130,23 @@ Supports line positioning for:
 - emacs (`+line`)
 - VS Code (`--goto file:line`)
 
+#### `completion` - Generate Shell Completions
+Generate completion scripts for various shells.
+```bash
+tasks completion fish > ~/.config/fish/completions/tasks.fish
+tasks completion bash > /etc/bash_completion.d/tasks
+tasks completion zsh > "${fpath[1]}/_tasks"
+```
+
+Supported shells: bash, zsh, fish, powershell
+
+#### `search` - Search Tasks and Sections
+Search for tasks and sections containing specific terms.
+```bash
+tasks search "review"    # Find items containing "review"
+tasks search bug fix     # Find items containing "bug" or "fix"
+```
+
 
 ## Supported Markdown Format
 
@@ -174,10 +192,13 @@ tasks done $TASK_ID
 
 ### Fish Shell Functions
 
+**Note:** If you installed via Homebrew, Fish functions and completions are automatically installed.
+
 **Manual Setup:**
-Copy all files from `fish/functions/` to your `~/.config/fish/functions/` directory:
+Copy functions and completions to your Fish configuration:
 ```bash
 cp fish/functions/*.fish ~/.config/fish/functions/
+cp fish/completions/tasks.fish ~/.config/fish/completions/
 ```
 
 **Available Functions After Installation:**
@@ -237,8 +258,8 @@ gh issue list --json number,title | \
 ## Development
 
 ### Requirements
-- Go 1.24.5+
-- Minimal external dependencies (golang.org/x/term for terminal support, testify for testing)
+- Go 1.25.0+
+- Dependencies: Cobra CLI framework, golang.org/x/term for terminal support, testify for testing
 
 ### Building
 ```bash
