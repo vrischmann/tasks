@@ -30,7 +30,7 @@ archives:
     files:
       - README.md
       - LICENSE
-      - fish/functions/*
+      - fish/**/*
 
 checksum:
   name_template: 'checksums.txt'
