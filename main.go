@@ -584,12 +584,12 @@ func newDoneCommand() *cobra.Command {
 			return nil
 		},
 	}
-	
+
 	// Add completion for task IDs
 	cmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return completeTaskIDs(toComplete, false) // false = incomplete tasks only
 	}
-	
+
 	return cmd
 }
 
@@ -624,12 +624,12 @@ func newUndoCommand() *cobra.Command {
 			return nil
 		},
 	}
-	
+
 	// Add completion for task IDs (completed tasks only)
 	cmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return completeTaskIDs(toComplete, true) // true = completed tasks only
 	}
-	
+
 	return cmd
 }
 
@@ -899,8 +899,50 @@ PowerShell:
 	}
 }
 
-// completeTaskIDs returns task IDs for command completion
-func completeTaskIDs(toComplete string, completedOnly bool) ([]string, cobra.ShellCompDirective) {
+// ItemFilter defines criteria for filtering items in completion
+type ItemFilter struct {
+	IncludeTasks    bool
+	IncludeSections bool
+	CompletedOnly   *bool // nil = include both, true = completed only, false = incomplete only
+}
+
+// formatCompletionEntry creates a formatted completion entry for an item
+func formatCompletionEntry(item Item, index int, includeTypePrefix bool) string {
+	id := fmt.Sprintf("%d", index+1) // 1-based ID for user display
+	description := item.Content
+
+	var prefix string
+	var maxLen int
+
+	if includeTypePrefix {
+		// Add type prefix for clarity when showing all items
+		if item.Type == TypeSection {
+			prefix = "section: "
+			maxLen = 45
+		} else {
+			if item.Checked != nil && *item.Checked {
+				prefix = "task (✓): "
+			} else {
+				prefix = "task ( ): "
+			}
+			maxLen = 45
+		}
+	} else {
+		// No prefix for task-only completions
+		maxLen = 50
+	}
+
+	// Limit description length for better readability
+	if len(description) > maxLen {
+		description = description[:maxLen-3] + "..."
+	}
+
+	// Format as "id\tdescription" for shell completion with description
+	return fmt.Sprintf("%s\t%s%s", id, prefix, description)
+}
+
+// completeItemIDs returns item IDs for command completion based on filter criteria
+func completeItemIDs(toComplete string, filter ItemFilter) ([]string, cobra.ShellCompDirective) {
 	// Load items from file
 	items, err := parseMarkdownFile(filePath)
 	if err != nil {
@@ -909,76 +951,55 @@ func completeTaskIDs(toComplete string, completedOnly bool) ([]string, cobra.She
 	}
 
 	var completions []string
+	includeTypePrefix := filter.IncludeTasks && filter.IncludeSections
+
 	for i, item := range items {
-		// Only include tasks (not sections)
-		if item.Type != TypeTask {
+		// Filter by item type
+		if item.Type == TypeTask && !filter.IncludeTasks {
+			continue
+		}
+		if item.Type == TypeSection && !filter.IncludeSections {
 			continue
 		}
 
-		// Filter based on completion status
-		isCompleted := item.Checked != nil && *item.Checked
-		if completedOnly && !isCompleted {
-			continue
-		}
-		if !completedOnly && isCompleted {
-			continue
+		// Filter by completion status (only applies to tasks)
+		if item.Type == TypeTask && filter.CompletedOnly != nil {
+			isCompleted := item.Checked != nil && *item.Checked
+			if *filter.CompletedOnly && !isCompleted {
+				continue
+			}
+			if !*filter.CompletedOnly && isCompleted {
+				continue
+			}
 		}
 
-		// 1-based ID for user display
+		// Filter by partial input (toComplete)
 		id := fmt.Sprintf("%d", i+1)
-		description := item.Content
-		
-		// Limit description length for better readability
-		if len(description) > 50 {
-			description = description[:47] + "..."
+		if toComplete != "" && !strings.HasPrefix(id, toComplete) {
+			continue
 		}
 
-		// Format as "id\tdescription" for shell completion with description
-		completion := fmt.Sprintf("%s\t%s", id, description)
+		completion := formatCompletionEntry(item, i, includeTypePrefix)
 		completions = append(completions, completion)
 	}
 
 	return completions, cobra.ShellCompDirectiveNoFileComp
 }
 
+// completeTaskIDs returns task IDs for command completion
+func completeTaskIDs(toComplete string, completedOnly bool) ([]string, cobra.ShellCompDirective) {
+	return completeItemIDs(toComplete, ItemFilter{
+		IncludeTasks:    true,
+		IncludeSections: false,
+		CompletedOnly:   &completedOnly,
+	})
+}
+
 // completeAllItemIDs returns all item IDs (tasks and sections) for command completion
 func completeAllItemIDs(toComplete string) ([]string, cobra.ShellCompDirective) {
-	// Load items from file
-	items, err := parseMarkdownFile(filePath)
-	if err != nil {
-		// If we can't load the file, return no completions
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	var completions []string
-	for i, item := range items {
-		// 1-based ID for user display
-		id := fmt.Sprintf("%d", i+1)
-		description := item.Content
-		
-		// Add type prefix for clarity
-		var prefix string
-		if item.Type == TypeSection {
-			prefix = "section: "
-		} else {
-			prefix = "task: "
-			// Add completion status for tasks
-			if item.Checked != nil && *item.Checked {
-				prefix = "task (✓): "
-			} else {
-				prefix = "task ( ): "
-			}
-		}
-		
-		// Limit description length for better readability
-		if len(description) > 45 {
-			description = description[:42] + "..."
-		}
-
-		// Format as "id\tdescription" for shell completion with description
-		completion := fmt.Sprintf("%s\t%s%s", id, prefix, description)
-		completions = append(completions, completion)
-	}
-
-	return completions, cobra.ShellCompDirectiveNoFileComp
+	return completeItemIDs(toComplete, ItemFilter{
+		IncludeTasks:    true,
+		IncludeSections: true,
+		CompletedOnly:   nil,
+	})
 }
