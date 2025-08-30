@@ -1,6 +1,6 @@
 module dev.rischmann.fr/tasks/v2
 
-go 1.24.5
+go 1.25.0
 
 require (
 	github.com/spf13/cobra v1.9.1
