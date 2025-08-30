@@ -78,15 +78,43 @@ func formatItem(item Item, index int) string {
 
 		headerStr := strings.Repeat("#", item.Level) + " " + item.Content
 		if shouldUseColor() {
-			result = fmt.Sprintf("\033[33m%s\033[0m %s", idStr, headerStr)
+			var headerColor string
+			switch item.Level {
+			case 1: // # red
+				headerColor = "\033[91m"
+			case 2: // ## orange
+				headerColor = "\033[33m"
+			case 3: // ### yellow
+				headerColor = "\033[93m"
+			case 4: // #### green
+				headerColor = "\033[92m"
+			case 5: // ##### light blue
+				headerColor = "\033[96m"
+			case 6: // ###### purple
+				headerColor = "\033[95m"
+			default:
+				headerColor = "\033[95m" // fallback to magenta
+			}
+			coloredHeader := headerColor + headerStr + "\033[0m"
+			result = fmt.Sprintf("\033[33m%s\033[0m %s", idStr, coloredHeader)
 		} else {
 			result = fmt.Sprintf("%s %s", idStr, headerStr)
 		}
 
 	case TypeTask:
-		checkBox := "[ ]"
+		var checkBox string
 		if item.Checked != nil && *item.Checked {
-			checkBox = "[x]"
+			if shouldUseColor() {
+				checkBox = "\033[92m[x]\033[0m" // Bright green for completed
+			} else {
+				checkBox = "[x]"
+			}
+		} else {
+			if shouldUseColor() {
+				checkBox = "\033[97m[ ]\033[0m" // Bright white for incomplete
+			} else {
+				checkBox = "[ ]"
+			}
 		}
 		taskStr := "- " + checkBox + " " + item.Content
 
