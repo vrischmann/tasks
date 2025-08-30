@@ -554,7 +554,7 @@ func newAddCommand() *cobra.Command {
 }
 
 func newDoneCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "done <id>",
 		Short: "Mark task as completed",
 		Long:  "Mark a task as completed by specifying its ID.",
@@ -584,10 +584,17 @@ func newDoneCommand() *cobra.Command {
 			return nil
 		},
 	}
+	
+	// Add completion for task IDs
+	cmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return completeTaskIDs(toComplete, false) // false = incomplete tasks only
+	}
+	
+	return cmd
 }
 
 func newUndoCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "undo <id>",
 		Short: "Mark task as incomplete",
 		Long:  "Mark a task as incomplete by specifying its ID.",
@@ -617,6 +624,13 @@ func newUndoCommand() *cobra.Command {
 			return nil
 		},
 	}
+	
+	// Add completion for task IDs (completed tasks only)
+	cmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return completeTaskIDs(toComplete, true) // true = completed tasks only
+	}
+	
+	return cmd
 }
 
 func newRemoveCommand() *cobra.Command {
@@ -700,6 +714,11 @@ func newRemoveCommand() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force removal without confirmation")
 
+	// Add completion for all item IDs (tasks and sections)
+	cmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return completeAllItemIDs(toComplete)
+	}
+
 	return cmd
 }
 
@@ -718,7 +737,7 @@ func confirmRemoval(itemDesc string) (bool, error) {
 }
 
 func newEditCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "edit <id>",
 		Short: "Edit task or section in $EDITOR",
 		Long:  "Edit a task or section by opening the file in $EDITOR at the appropriate line.",
@@ -783,6 +802,13 @@ func newEditCommand() *cobra.Command {
 			return nil
 		},
 	}
+
+	// Add completion for all item IDs (tasks and sections)
+	cmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return completeAllItemIDs(toComplete)
+	}
+
+	return cmd
 }
 
 func newSearchCommand() *cobra.Command {
@@ -871,4 +897,88 @@ PowerShell:
 			}
 		},
 	}
+}
+
+// completeTaskIDs returns task IDs for command completion
+func completeTaskIDs(toComplete string, completedOnly bool) ([]string, cobra.ShellCompDirective) {
+	// Load items from file
+	items, err := parseMarkdownFile(filePath)
+	if err != nil {
+		// If we can't load the file, return no completions
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var completions []string
+	for i, item := range items {
+		// Only include tasks (not sections)
+		if item.Type != TypeTask {
+			continue
+		}
+
+		// Filter based on completion status
+		isCompleted := item.Checked != nil && *item.Checked
+		if completedOnly && !isCompleted {
+			continue
+		}
+		if !completedOnly && isCompleted {
+			continue
+		}
+
+		// 1-based ID for user display
+		id := fmt.Sprintf("%d", i+1)
+		description := item.Content
+		
+		// Limit description length for better readability
+		if len(description) > 50 {
+			description = description[:47] + "..."
+		}
+
+		// Format as "id\tdescription" for shell completion with description
+		completion := fmt.Sprintf("%s\t%s", id, description)
+		completions = append(completions, completion)
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
+// completeAllItemIDs returns all item IDs (tasks and sections) for command completion
+func completeAllItemIDs(toComplete string) ([]string, cobra.ShellCompDirective) {
+	// Load items from file
+	items, err := parseMarkdownFile(filePath)
+	if err != nil {
+		// If we can't load the file, return no completions
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var completions []string
+	for i, item := range items {
+		// 1-based ID for user display
+		id := fmt.Sprintf("%d", i+1)
+		description := item.Content
+		
+		// Add type prefix for clarity
+		var prefix string
+		if item.Type == TypeSection {
+			prefix = "section: "
+		} else {
+			prefix = "task: "
+			// Add completion status for tasks
+			if item.Checked != nil && *item.Checked {
+				prefix = "task (✓): "
+			} else {
+				prefix = "task ( ): "
+			}
+		}
+		
+		// Limit description length for better readability
+		if len(description) > 45 {
+			description = description[:42] + "..."
+		}
+
+		// Format as "id\tdescription" for shell completion with description
+		completion := fmt.Sprintf("%s\t%s%s", id, prefix, description)
+		completions = append(completions, completion)
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp
 }
