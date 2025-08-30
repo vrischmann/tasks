@@ -1,12 +1,38 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"slices"
 	"strings"
 )
+
+// createEmptyFile creates an empty markdown file at the specified path.
+// It ensures the parent directories exist and creates an empty file.
+func createEmptyFile(filePath string) error {
+	// Ensure parent directory exists
+	if dir := strings.TrimSpace(strings.TrimSuffix(filePath, "/")); dir != "" {
+		parent := ""
+		if idx := strings.LastIndex(dir, "/"); idx != -1 {
+			parent = dir[:idx]
+		}
+		if parent != "" {
+			if err := os.MkdirAll(parent, 0o755); err != nil {
+				return err
+			}
+		}
+	}
+
+	f, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return nil
+}
 
 // TaskManager handles loading, modifying, and saving markdown files
 type TaskManager struct {
@@ -17,10 +43,24 @@ type TaskManager struct {
 // Load reads and parses the markdown file
 func (tm *TaskManager) Load() error {
 	items, err := parseMarkdownFile(tm.FilePath)
-	if err != nil {
+
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		// Create empty file with no items
+		if err := createEmptyFile(tm.FilePath); err != nil {
+			return fmt.Errorf("failed to create file '%s': %w", tm.FilePath, err)
+		}
+
+		// Return empty items
+		tm.Items = []Item{}
+		return nil
+
+	case err != nil:
 		return err
 	}
+
 	tm.Items = items
+
 	return nil
 }
 
