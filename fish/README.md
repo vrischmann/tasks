@@ -22,8 +22,26 @@ cp fish/*.fish ~/.config/fish/functions/
 
 ### Option 3: Symlink to Fish functions directory
 ```bash
-ln -sf /path/to/tasks/fish/*.fish ~/.config/fish/functions/
+ln -sf /path/to/tasks/fish/functions/*.fish ~/.config/fish/functions/
 ```
+
+## Shell Completions
+
+Fish shell completions are provided for the `tasks` CLI tool.
+
+### Installation
+```bash
+# Copy completions file
+cp fish/completions/tasks.fish ~/.config/fish/completions/
+
+# Or symlink for development
+ln -sf /path/to/tasks/fish/completions/tasks.fish ~/.config/fish/completions/
+```
+
+The completions provide:
+- Command completion (ls, add, done, undo, rm, edit, search, completion)
+- Flag completion (--file, --color, --section)
+- Shell type completion for `tasks completion` command
 
 ## Functions
 
