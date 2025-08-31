@@ -783,10 +783,9 @@ func TestTaskManager_AddTask_ErrorCases(t *testing.T) {
 // TestTaskManager_Load_ErrorHandling tests error cases in Load method
 func TestTaskManager_Load_ErrorHandling(t *testing.T) {
 	t.Run("non-existent file", func(t *testing.T) {
-		tm := &TaskManager{FilePath: "/nonexistent/file.md"}
+		tm := &TaskManager{FilePath: t.TempDir() + "/file.md"}
 		err := tm.Load()
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "does not exist")
+		require.NoError(t, err)
 	})
 
 	t.Run("malformed markdown", func(t *testing.T) {
