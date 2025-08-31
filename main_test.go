@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
 	"testing"
@@ -1072,12 +1073,10 @@ func TestFormatItem(t *testing.T) {
 
 // Additional tests for parseMarkdownFile edge cases
 func TestParseMarkdownFile_MoreEdgeCases(t *testing.T) {
-	t.Run("file read error handling", func(t *testing.T) {
-		// Test non-existent file
+	t.Run("file does not exist", func(t *testing.T) {
 		items, err := parseMarkdownFile("/nonexistent/file.md")
-		require.Error(t, err)
-		require.Nil(t, items)
-		require.Contains(t, err.Error(), "does not exist")
+		require.ErrorIs(t, err, fs.ErrNotExist)
+		require.Empty(t, items)
 	})
 
 	t.Run("complex mixed content", func(t *testing.T) {
