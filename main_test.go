@@ -862,11 +862,11 @@ func TestNewTaskManager(t *testing.T) {
 		require.Equal(t, "Test task", tm.Items[1].Content)
 	})
 
-	t.Run("file not found", func(t *testing.T) {
-		tm, err := NewTaskManager("/nonexistent/file.md")
-		require.Error(t, err)
-		require.Nil(t, tm)
-		require.Contains(t, err.Error(), "error loading file")
+	t.Run("empty file", func(t *testing.T) {
+		tm, err := NewTaskManager(t.TempDir() + "/file.md")
+		require.NoError(t, err)
+		require.NotNil(t, tm)
+		require.Empty(t, tm.Items)
 	})
 }
 
